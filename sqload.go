@@ -24,9 +24,9 @@ func extractSql(lines []string) string {
 	return strings.Join(sqlLines, "\n")
 }
 
-func extractQueries(s string) (map[string]string, error) {
+func extractQueries(sql string) (map[string]string, error) {
 	queries := make(map[string]string)
-	rawQueries := QueryName.Split(s, -1)
+	rawQueries := QueryName.Split(sql, -1)
 	if len(rawQueries) <= 1 {
 		return queries, nil
 	}
@@ -48,7 +48,7 @@ func findFilesWithExtension(dir string, ext string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && strings.ToLower(filepath.Ext()) == ".sql" {
+		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ".sql" {
 			files = append(files, path)
 		}
 		return nil
