@@ -217,17 +217,10 @@ func TestFindFilesWithExtension(t *testing.T) {
 }
 
 func TestLoadQueriesIntoStruct(t *testing.T) {
-	// load queries into map
-	data, err := os.ReadFile("testdata/cat-queries.sql")
-	if err != nil {
-		t.Error(err)
-	}
-	sql := string(data)
-	queries, err := extractQueries(sql)
-	if err != nil {
-		t.Error(err)
-	}
 	// create test cases to test that the function only accepts pointers to structs
+	var nilPtr *int = nil
+	num := 1
+	intPtr := &num
 	testCases := []struct {
 		v   any
 		err error
@@ -246,14 +239,30 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		},
 		{
 			nil,
-			fmt.Errorf("v is nil"),
+			fmt.Errorf("v is not a pointer"),
 		},
 		{
 			map[string]string{},
+			fmt.Errorf("v is not a pointer"),
+		},
+		{
+			nilPtr,
+			fmt.Errorf("v is nil"),
+		},
+		{
+			intPtr,
 			fmt.Errorf("v is not a pointer to a struct"),
 		},
 	}
-
+	for i, testCase := range testCases {
+		t.Run(fmt.Sprintf("%d (v=%v)", i, testCase.v), func(t *testing.T) {
+			err := loadQueriesIntoStruct(map[string]string{}, testCase.v)
+			if fmt.Sprint(err) != fmt.Sprint(testCase.err) {
+				t.Errorf("got %s, want %s", err, testCase.err)
+				return
+			}
+		})
+	}
 	// create struct to hold the queries
 	type CatQueries struct {
 		CreateCatTable  string `query:"CreateCatTable"`
@@ -261,16 +270,30 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		CreateNormalCat string `query:"CreateNormalCat"`
 		UpdateColorById string `query:"UpdateColorById"`
 	}
-
-	// test using a no-struct type
-	err = loadQueriesIntoStruct(queries, 1)
-	errMsg := fmt.Sprint(err)
-	want := "v is not a pointer"
-	if errMsg != want {
-		t.Errorf("got %s, want %s", errMsg, want)
+	// load queries into map
+	data, err := os.ReadFile("testdata/cat-queries.sql")
+	if err != nil {
+		t.Error(err)
 	}
-	// test using a struct type
-
+	sql := string(data)
+	queries, err := extractQueries(sql)
+	if err != nil {
+		t.Error(err)
+	}
+	catQueries := CatQueries{}
+	loadQueriesIntoStruct(queries, &catQueries)
+	if catQueries.CreateCatTable != queries["CreateCatTable"] {
+		t.Errorf("got %s, want %s", catQueries.CreateCatTable, queries["CreateCatTable"])
+	}
+	if catQueries.CreatePsychoCat != queries["CreatePsychoCat"] {
+		t.Errorf("got %s, want %s", catQueries.CreatePsychoCat, queries["CreatePsychoCat"])
+	}
+	if catQueries.CreateNormalCat != queries["CreateNormalCat"] {
+		t.Errorf("got %s, want %s", catQueries.CreateNormalCat, queries["CreateNormalCat"])
+	}
+	if catQueries.UpdateColorById != queries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", catQueries.UpdateColorById, queries["UpdateColorById"])
+	}
 }
 
 func TestFromString(t *testing.T) {

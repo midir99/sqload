@@ -71,9 +71,6 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 	if elem.Kind() != reflect.Struct {
 		return fmt.Errorf("v is not a pointer to a struct")
 	}
-	if !elem.CanAddr() {
-		return fmt.Errorf("v is not addressable")
-	}
 	queriesAndFields := map[string]int{}
 	for i := 0; i < elem.NumField(); i++ {
 		queryTag := elem.Type().Field(i).Tag.Get("query")
