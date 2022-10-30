@@ -48,7 +48,7 @@ func findFilesWithExtension(dir string, ext string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ".sql" {
+		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ext {
 			files = append(files, path)
 		}
 		return nil
@@ -68,6 +68,9 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 		return fmt.Errorf("v is nil")
 	}
 	elem := value.Elem()
+	if elem.Kind() != reflect.Struct {
+		return fmt.Errorf("v is not a pointer to a struct")
+	}
 	if !elem.CanAddr() {
 		return fmt.Errorf("v is not addressable")
 	}

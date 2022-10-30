@@ -2,6 +2,7 @@ package sqload
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
@@ -101,11 +102,25 @@ func TestExtractQueries(t *testing.T) {
 				nil,
 			},
 		},
+		{
+			"",
+			Want{
+				map[string]string{},
+				nil,
+			},
+		},
+		{
+			"-- name: not-a-valid-query-name",
+			Want{
+				map[string]string{},
+				fmt.Errorf("invalid query name: not-a-valid-query-name"),
+			},
+		},
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			queries, err := extractQueries(testCase.sql)
-			if err != testCase.want.err {
+			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
 				t.Errorf("got %v, want %v", err, testCase.want.err)
 				return
 			}
@@ -131,10 +146,130 @@ func TestExtractQueries(t *testing.T) {
 }
 
 func TestFindFilesWithExtension(t *testing.T) {
-
+	type Want struct {
+		files []string
+		err   error
+	}
+	testCases := []struct {
+		dir  string
+		ext  string
+		want Want
+	}{
+		{
+			"testdata/test-find-files-with-extension/",
+			".sql",
+			Want{
+				[]string{
+					"testdata/test-find-files-with-extension/dogs.sql",
+					"testdata/test-find-files-with-extension/love/u.sql",
+					"testdata/test-find-files-with-extension/more-files/even-more-files/random-queries.sql",
+				},
+				nil,
+			},
+		},
+		{
+			"testdata/test-find-files-with-extension/",
+			".txt",
+			Want{
+				[]string{
+					"testdata/test-find-files-with-extension/more-files/words-dont-come-easy.txt",
+				},
+				nil,
+			},
+		},
+		{
+			"testdata/test-find-files-with-extension/",
+			".txt",
+			Want{
+				[]string{
+					"testdata/test-find-files-with-extension/more-files/words-dont-come-easy.txt",
+				},
+				nil,
+			},
+		},
+		{
+			"testdata/test-find-files-with-extension/",
+			".py",
+			Want{[]string{}, nil},
+		},
+	}
+	for i, testCase := range testCases {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			sqlFiles, err := findFilesWithExtension(testCase.dir, testCase.ext)
+			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
+				t.Errorf("got %v, want %v", err, testCase.want.err)
+				return
+			}
+			sqlFilesLen := len(sqlFiles)
+			wantedLen := len(testCase.want.files)
+			if sqlFilesLen != wantedLen {
+				t.Errorf("got %d, want %d", sqlFilesLen, wantedLen)
+				return
+			}
+			for i := 0; i < sqlFilesLen; i++ {
+				if sqlFiles[i] != testCase.want.files[i] {
+					t.Errorf("got %v, want %v", sqlFiles, testCase.want.files)
+					return
+				}
+			}
+		})
+	}
 }
 
 func TestLoadQueriesIntoStruct(t *testing.T) {
+	// load queries into map
+	data, err := os.ReadFile("testdata/cat-queries.sql")
+	if err != nil {
+		t.Error(err)
+	}
+	sql := string(data)
+	queries, err := extractQueries(sql)
+	if err != nil {
+		t.Error(err)
+	}
+	// create test cases to test that the function only accepts pointers to structs
+	testCases := []struct {
+		v   any
+		err error
+	}{
+		{
+			1,
+			fmt.Errorf("v is not a pointer"),
+		},
+		{
+			"",
+			fmt.Errorf("v is not a pointer"),
+		},
+		{
+			struct{ CreateCatTable string }{},
+			fmt.Errorf("v is not a pointer"),
+		},
+		{
+			nil,
+			fmt.Errorf("v is nil"),
+		},
+		{
+			map[string]string{},
+			fmt.Errorf("v is not a pointer to a struct"),
+		},
+	}
+
+	// create struct to hold the queries
+	type CatQueries struct {
+		CreateCatTable  string `query:"CreateCatTable"`
+		CreatePsychoCat string `query:"CreatePsychoCat"`
+		CreateNormalCat string `query:"CreateNormalCat"`
+		UpdateColorById string `query:"UpdateColorById"`
+	}
+
+	// test using a no-struct type
+	err = loadQueriesIntoStruct(queries, 1)
+	errMsg := fmt.Sprint(err)
+	want := "v is not a pointer"
+	if errMsg != want {
+		t.Errorf("got %s, want %s", errMsg, want)
+	}
+	// test using a struct type
 
 }
 

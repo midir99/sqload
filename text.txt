@@ -47,3 +47,25 @@ func main() {
 		fmt.Println("Extracted SQL:", extractedSql)
 	}
 }
+
+
+
+
+
+got [
+	testdata/test-find-files-with-extension/dogs.sql
+	testdata/test-find-files-with-extension/love/u.sql
+	testdata/test-find-files-with-extension/more-files/even-more-files/random-queries.sql],
+want [
+	testdata/test-find-files-with-extension/love/u.sql
+	testdata/test-find-files-with-extension/dogs.sql
+	testdata/test-find-files-with-extension/more-files/even-more-files/random-queries.sql
+]
+
+
+[
+	testdata/test-find-files-with-extension/dogs.sql
+	testdata/test-find-files-with-extension/love/u.sql
+	testdata/test-find-files-with-extension/more-files/even-more-files/random-queries.sql],
+want [
+	testdata/test-find-files-with-extension/more-files/words-dont-come-easy.txt
