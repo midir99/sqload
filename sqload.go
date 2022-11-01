@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var QueryName = regexp.MustCompile(`-- name: `)
+var QueryName = regexp.MustCompile(`[ \t\n\r\f\v]*-- name:`)
 var ValidQueryName = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 var QueryComment = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
 
@@ -81,11 +81,11 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 	for queryName, fieldIndex := range queriesAndFields {
 		sql, ok := queries[queryName]
 		if !ok {
-			return fmt.Errorf("could not to find query: %s", queryName)
+			return fmt.Errorf("could not to find query %s", queryName)
 		}
 		field := elem.Field(fieldIndex)
 		if !field.CanSet() || field.Kind() != reflect.String {
-			return fmt.Errorf("field %s cannot be changed or is not a string", field.Type().Name())
+			return fmt.Errorf("field %s cannot be changed or is not a string", elem.Type().Field(fieldIndex).Name)
 		}
 		field.SetString(sql)
 	}
