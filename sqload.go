@@ -1,4 +1,34 @@
-// Package sqload provides functions to load SQL code from strings or .sql files into tagged struct fields
+// Package sqload provides functions to load SQL code from strings or .sql files into tagged struct fields.
+//	package main
+//
+//	import (
+//		"fmt"
+//		"os"
+//
+//		"github.com/midir99/sqload"
+//	)
+//
+//	type UserQueries struct {
+//		FindUserById            string `query:"FindUserById"`
+//		UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
+//	}
+//
+//	func main() {
+//		sql := `
+//		-- query: FindUserById
+//		SELECT * FROM user WHERE id = :id;
+//		-- query: UpdateUserFirstNameById
+//		UPDATE user SET first_name = :first_name WHERE id = :id;
+//		`
+//		userQueries := UserQueries{}
+//		err := sqload.FromString(sql, &userQueries)
+//		if err != nil {
+//			fmt.Printf("error loading user queries: %s\n", err)
+//			os.Exit(1)
+//		}
+//		fmt.Printf("FindUserById: %s\n", userQueries.FindUserById)
+//		fmt.Printf("UpdateUserFirstNameById: %s\n", userQueries.UpdateUserFirstNameById)
+//	}
 package sqload
 
 import (
@@ -93,38 +123,9 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 	return nil
 }
 
-// FromString loads the SQL code from the string passed and stores the queries in the struct pointed to by v,
-// v must be a pointer to a struct with tags, and each tag indicates what query will be stored in what field. Example:
-//	package main
-//
-//	import (
-//		"fmt"
-//		"os"
-//		"github.com/midir99/sqload"
-//	)
-//
-//	type UserQueries struct {
-//		FindUserById            string `query:"FindUserById"`
-//		UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
-//	}
-//
-//	func main() {
-//		sql := `
-//		-- query: FindUserById
-//		SELECT * FROM user WHERE id = :id;
-//
-//		-- query: UpdateUserFirstNameById
-//		UPDATE user SET first_name = :first_name WHERE id = :id;
-//		`
-//		userQueries := UserQueries{}
-//		err := sqload.FromString(sql, &userQueries)
-//		if err != nil {
-//			fmt.Printf("error loading user queries: %s\n", err)
-//			os.Exit(1)
-//		}
-//		fmt.Printf("FindUserById: %s", userQueries.FindUserById)
-//		fmt.Printf("UpdateUserFirstNameById: %s", userQueries.UpdateUserFirstNameById)
-//	}
+// FromString loads the SQL code from the string passed and stores the queries in the
+// struct pointed to by v, v must be a pointer to a struct with tags, and each tag
+// indicates what query will be stored in what field.
 func FromString(s string, v any) error {
 	queries, err := extractQueries(s)
 	if err != nil {
@@ -133,16 +134,23 @@ func FromString(s string, v any) error {
 	return loadQueriesIntoStruct(queries, v)
 }
 
-func FromFile(name string, v any) error {
-	data, err := os.ReadFile(name)
+// FromFile loads the SQL code from the file filename and stores the queries in the struct
+// pointed to by v, v must be a pointer to a struct with tags, and each tag indicates
+// what query will be stored in what field.
+func FromFile(filename string, v any) error {
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
 	return FromString(string(data), v)
 }
 
-func FromDir(name string, v any) error {
-	files, err := findFilesWithExtension(name, ".sql")
+// FromDir loads the SQL code from all the .sql files in the directory dirname
+// (recursively) and stores the queries in the struct pointed to by v, v must be a
+// pointer to a struct with tags, and each tag indicates what query will be stored in
+// what field.
+func FromDir(dirname string, v any) error {
+	files, err := findFilesWithExtension(dirname, ".sql")
 	if err != nil {
 		return err
 	}
