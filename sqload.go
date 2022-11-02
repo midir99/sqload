@@ -62,7 +62,7 @@ func findFilesWithExtension(dir string, ext string) ([]string, error) {
 func loadQueriesIntoStruct(queries map[string]string, v any) error {
 	value := reflect.ValueOf(v)
 	if value.Kind() != reflect.Pointer {
-		return fmt.Errorf("v is not a pointer")
+		return fmt.Errorf("v is not a pointer to a struct")
 	}
 	if value.IsNil() {
 		return fmt.Errorf("v is nil")
