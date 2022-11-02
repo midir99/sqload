@@ -126,9 +126,9 @@ func TestExtractQueries(t *testing.T) {
 		{
 			strings.Join(
 				[]string{
-					"-- name: GetUserById",
+					"-- query: GetUserById",
 					"SELECT * FROM user WHERE id = 1;",
-					"-- name: GetUserByUsername",
+					"-- query: GetUserByUsername",
 					"SELECT * FROM user WHERE username = 'neto';",
 				},
 				"\n",
@@ -144,9 +144,9 @@ func TestExtractQueries(t *testing.T) {
 		{
 			strings.Join(
 				[]string{
-					"--name: GetUserById",
+					"--query: GetUserById",
 					"",
-					"--name: OracionCaribe",
+					"--query: OracionCaribe",
 				},
 				"\n",
 			),
@@ -163,7 +163,7 @@ func TestExtractQueries(t *testing.T) {
 			},
 		},
 		{
-			"-- name: not-a-valid-query-name",
+			"-- query: not-a-valid-query-name",
 			Want{
 				map[string]string{},
 				fmt.Errorf("invalid query name: not-a-valid-query-name"),
@@ -172,7 +172,7 @@ func TestExtractQueries(t *testing.T) {
 		{
 			strings.Join(
 				[]string{
-					"-- name: ",
+					"-- query: ",
 				},
 				"\n",
 			),
@@ -184,7 +184,7 @@ func TestExtractQueries(t *testing.T) {
 		{
 			strings.Join(
 				[]string{
-					" -- name:",
+					" -- query:",
 					"EmptyQuery",
 				},
 				"\n",
@@ -384,7 +384,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 
 func TestFromString(t *testing.T) {
 	sql := `
-	-- name: invalid-name
+	-- query: invalid-name
 	`
 	err := FromString(sql, 1)
 	want := fmt.Errorf("invalid query name: invalid-name")
@@ -392,7 +392,7 @@ func TestFromString(t *testing.T) {
 		t.Errorf("got %s, want %s", err, want)
 	}
 	sql = strings.TrimSpace(`
--- name: CreateCatTable
+-- query: CreateCatTable
 CREATE TABLE Cat (
     id SERIAL,
     name VARCHAR(150),
@@ -400,7 +400,7 @@ CREATE TABLE Cat (
 
     PRIMARY KEY (id)
 );
--- name: CreatePsychoCat
+-- query: CreatePsychoCat
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
 	type CatQueries struct {
 		CreateCatTable  string `query:"CreateCatTable"`

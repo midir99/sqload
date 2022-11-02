@@ -1,4 +1,4 @@
--- name: FindRiders
+-- query: FindRiders
 SELECT r.last_name,
        (SELECT MAX(YEAR(championship_date))
           FROM champions AS c

@@ -1,4 +1,4 @@
--- name: FindUserById
+-- query: FindUserById
 SELECT first_name,
        last_name,
        dob,
@@ -7,12 +7,12 @@ SELECT first_name,
  WHERE id = 1;
 
 
--- name: UpdateFirstNameById
+-- query: UpdateFirstNameById
 UPDATE user
    SET first_name = 'Ernesto'
  WHERE id = 200;
 
 
--- name: DeleteUserById
+-- query: DeleteUserById
 DELETE FROM user
       WHERE id = $1;

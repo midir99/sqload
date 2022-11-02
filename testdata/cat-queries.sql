@@ -1,4 +1,4 @@
--- name: CreateCatTable
+-- query: CreateCatTable
 CREATE TABLE Cat (
     id SERIAL,
     name VARCHAR(150),
@@ -8,15 +8,15 @@ CREATE TABLE Cat (
 );
 
 
--- name: CreatePsychoCat
+-- query: CreatePsychoCat
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
 
 
--- name: CreateNormalCat
+-- query: CreateNormalCat
 INSERT INTO Cat (name, color) VALUES (:name, :color);
 
 
--- name: UpdateColorById
+-- query: UpdateColorById
 UPDATE Cat
    SET color = :color
  WHERE id = :id;

@@ -1,3 +1,4 @@
+// Package sqload provides functions to load SQL code from strings or .sql files into tagged struct fields
 package sqload
 
 import (
@@ -10,14 +11,14 @@ import (
 	"strings"
 )
 
-var QueryName = regexp.MustCompile(`[ \t\n\r\f\v]*-- name:`)
-var ValidQueryName = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-var QueryComment = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
+var queryNamePattern = regexp.MustCompile(`[ \t\n\r\f\v]*-- query:`)
+var validQueryNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+var queryCommentPattern = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
 
 func extractSql(lines []string) string {
 	sqlLines := []string{}
 	for _, line := range lines {
-		if !QueryComment.MatchString(line) {
+		if !queryCommentPattern.MatchString(line) {
 			sqlLines = append(sqlLines, line)
 		}
 	}
@@ -26,14 +27,14 @@ func extractSql(lines []string) string {
 
 func extractQueries(sql string) (map[string]string, error) {
 	queries := make(map[string]string)
-	rawQueries := QueryName.Split(sql, -1)
+	rawQueries := queryNamePattern.Split(sql, -1)
 	if len(rawQueries) <= 1 {
 		return queries, nil
 	}
 	for _, q := range rawQueries[1:] {
 		lines := strings.Split(strings.TrimSpace(q), "\n")
 		queryName := lines[0]
-		if !ValidQueryName.MatchString(queryName) {
+		if !validQueryNamePattern.MatchString(queryName) {
 			return nil, fmt.Errorf("invalid query name: %s", queryName)
 		}
 		querySql := extractSql(lines[1:])
@@ -92,6 +93,38 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 	return nil
 }
 
+// FromString loads the SQL code from the string passed and stores the queries in the struct pointed to by v,
+// v must be a pointer to a struct with tags, and each tag indicates what query will be stored in what field. Example:
+//	package main
+//
+//	import (
+//		"fmt"
+//		"os"
+//		"github.com/midir99/sqload"
+//	)
+//
+//	type UserQueries struct {
+//		FindUserById            string `query:"FindUserById"`
+//		UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
+//	}
+//
+//	func main() {
+//		sql := `
+//		-- query: FindUserById
+//		SELECT * FROM user WHERE id = :id;
+//
+//		-- query: UpdateUserFirstNameById
+//		UPDATE user SET first_name = :first_name WHERE id = :id;
+//		`
+//		userQueries := UserQueries{}
+//		err := sqload.FromString(sql, &userQueries)
+//		if err != nil {
+//			fmt.Printf("error loading user queries: %s\n", err)
+//			os.Exit(1)
+//		}
+//		fmt.Printf("FindUserById: %s", userQueries.FindUserById)
+//		fmt.Printf("UpdateUserFirstNameById: %s", userQueries.UpdateUserFirstNameById)
+//	}
 func FromString(s string, v any) error {
 	queries, err := extractQueries(s)
 	if err != nil {
