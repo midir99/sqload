@@ -8,7 +8,7 @@
 //		"github.com/midir99/sqload"
 //	)
 //
-//	type UserQueries struct {
+//	type UserQuery struct {
 //		FindUserById            string `query:"FindUserById"`
 //		UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
 //	}
@@ -17,17 +17,18 @@
 //		sql := `
 //		-- query: FindUserById
 //		SELECT * FROM user WHERE id = :id;
+//
 //		-- query: UpdateUserFirstNameById
 //		UPDATE user SET first_name = :first_name WHERE id = :id;
 //		`
-//		userQueries := UserQueries{}
-//		err := sqload.FromString(sql, &userQueries)
+//		userQuery := UserQuery{}
+//		err := sqload.FromString(sql, &userQuery)
 //		if err != nil {
 //			fmt.Printf("error loading user queries: %s\n", err)
 //			os.Exit(1)
 //		}
-//		fmt.Printf("FindUserById: %s\n", userQueries.FindUserById)
-//		fmt.Printf("UpdateUserFirstNameById: %s\n", userQueries.UpdateUserFirstNameById)
+//		fmt.Printf("FindUserById: %s\n", userQuery.FindUserById)
+//		fmt.Printf("UpdateUserFirstNameById: %s\n", userQuery.UpdateUserFirstNameById)
 //	}
 package sqload
 
