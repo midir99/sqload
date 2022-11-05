@@ -271,7 +271,7 @@ func TestFindFilesWithExtension(t *testing.T) {
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			sqlFiles, err := findFilesWithExtension(testCase.dir, testCase.ext)
+			sqlFiles, err := filterFilesByExt(testCase.dir, testCase.ext)
 			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
 				t.Fatalf("got %v, want %v", err, testCase.want.err)
 			}
@@ -416,6 +416,41 @@ INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
 	}
 	if catQuery.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
 		t.Errorf("got %s, want %s", catQuery.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
+	}
+}
+
+func TestLoadFromString(t *testing.T) {
+	sql := `
+	-- query: invalid-name
+	`
+	_, err := LoadFromString[struct{}](sql)
+	want := fmt.Errorf("invalid query name: invalid-name")
+	if fmt.Sprint(err) != fmt.Sprint(want) {
+		t.Errorf("got %s, want %s", err, want)
+	}
+	sql = strings.TrimSpace(`
+-- query: CreateCatTable
+CREATE TABLE Cat (
+    id SERIAL,
+    name VARCHAR(150),
+    color VARCHAR(50),
+
+    PRIMARY KEY (id)
+);
+-- query: CreatePsychoCat
+INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
+	q, err := LoadFromString[struct {
+		CreateCatTable  string `query:"CreateCatTable"`
+		CreatePsychoCat string `query:"CreatePsychoCat"`
+	}](sql)
+	if err != nil {
+		t.Fatalf("err must be nil, got: %s", err)
+	}
+	if q.CreateCatTable != CatTestQueries["CreateCatTable"] {
+		t.Errorf("got %s, want %s", q.CreateCatTable, CatTestQueries["CreateCatTable"])
+	}
+	if q.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
+		t.Errorf("got %s, want %s", q.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
 	}
 }
 

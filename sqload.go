@@ -74,9 +74,9 @@ func extractQueries(sql string) (map[string]string, error) {
 	return queries, nil
 }
 
-func findFilesWithExtension(dir string, ext string) ([]string, error) {
+func filterFilesByExt(fsys fs.FS, ext string) ([]string, error) {
 	files := []string{}
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -124,6 +124,18 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 	return nil
 }
 
+func cat(fsys fs.FS, filenames []string) (string, error) {
+	txt := ""
+	for _, filename := range filenames {
+		data, err := fs.ReadFile(fsys, filename)
+		if err != nil {
+			return "", err
+		}
+		txt = txt + "\n" + string(data)
+	}
+	return txt, nil
+}
+
 // FromString loads the SQL code from the string passed and stores the queries in the
 // struct pointed to by v, v must be a pointer to a struct with tags, and each tag
 // indicates what query will be stored in what field.
@@ -133,6 +145,19 @@ func FromString(s string, v any) error {
 		return err
 	}
 	return loadQueriesIntoStruct(queries, v)
+}
+
+func LoadFromString[V any](s string) (*V, error) {
+	var v V
+	queries, err := extractQueries(s)
+	if err != nil {
+		return nil, err
+	}
+	err = loadQueriesIntoStruct(queries, &v)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
 }
 
 // FromFile loads the SQL code from the file filename and stores the queries in the struct
@@ -146,12 +171,20 @@ func FromFile(filename string, v any) error {
 	return FromString(string(data), v)
 }
 
+func LoadFromFile[V any](filename string) (*V, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return LoadFromString[V](string(data))
+}
+
 // FromDir loads the SQL code from all the .sql files in the directory dirname
 // (recursively) and stores the queries in the struct pointed to by v, v must be a
 // pointer to a struct with tags, and each tag indicates what query will be stored in
 // what field.
 func FromDir(dirname string, v any) error {
-	files, err := findFilesWithExtension(dirname, ".sql")
+	files, err := filterFilesByExt(dirname, ".sql")
 	if err != nil {
 		return err
 	}
@@ -174,4 +207,30 @@ func FromDir(dirname string, v any) error {
 		return err
 	}
 	return nil
+}
+
+func LoadFromDir[V any](dirname string) (*V, error) {
+	fsys := os.DirFS(dirname)
+	files, err := filterFilesByExt(fsys, ".sql")
+	if err != nil {
+		return nil, err
+	}
+	sql, err := cat(fsys, files)
+	if err != nil {
+		return nil, err
+	}
+	return LoadFromString[V](sql)
+}
+
+func LoadFromFS[V any](fsys fs.FS) (*V, error) {
+	files := []string{}
+	files, err := filterFilesByExt(fsys, ".sql")
+	if err != nil {
+		return nil, err
+	}
+	sql, err := cat(fsys, files)
+	if err != nil {
+		return nil, err
+	}
+	return LoadFromString[V](sql)
 }
