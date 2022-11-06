@@ -1,22 +1,27 @@
 # sqload
 
-Personally I don't like writing SQL code inside the Go source files, so I made this simple and fully tested module to load SQL queries from files.
+https://pkg.go.dev/github.com/midir99/sqload
+
+Personally, I don't like writing SQL code inside the Go source files, so I made this simple and thoroughly tested module to load SQL queries from files.
+
+This library is inspired by [Yesql](https://github.com/krisajenkins/yesql/).
 
 ## How to use it?
 
-Each SQL query must include a comment at the beginning, the comment must be something like:
+Each SQL query must include a comment at the beginning; the comment must be something like:
 
-`-- query: NameOfYourQuery`
-
-This comment is mandatory so the loader can match the name of your query with the field of the struct where the SQL code of your query will be stored. In this case, the struct would look like this:
-
-```go
-type Query struct {
-    NameOfYourQuery string `query:"NameOfYourQuery"`
-}
+```sql
+-- query: FindCatById
+SELECT * FROM cat WHERE id = :id;
 ```
 
-The following are some examples of how you can use this library:
+This comment is mandatory so the loader can match the name of your query with the tagged struct field where the SQL code of your query will be stored. In this case, the struct would look like this:
+
+```go
+struct {
+    FindCatById string `query:"FindCatById"`
+}
+```
 
 ### Load SQL code from strings
 
@@ -25,166 +30,143 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/midir99/sqload"
 )
 
-type UserQuery struct {
-	FindUserById            string `query:"FindUserById"`
-	UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
-}
+var Q = sqload.MustLoadFromString[struct {
+	FindUserById        string `query:"FindUserById"`
+	UpdateFirstNameById string `query:"UpdateFirstNameById"`
+	DeleteUserById      string `query:"DeleteUserById"`
+}](`
+-- query: FindUserById
+SELECT first_name,
+       last_name,
+       dob,
+       email
+  FROM user
+ WHERE id = :id;
+
+-- query: UpdateFirstNameById
+UPDATE user
+   SET first_name = 'Ernesto'
+ WHERE id = :id;
+
+-- query: DeleteUserById
+DELETE FROM user
+      WHERE id = :id;
+`)
 
 func main() {
-	sql := `
-	-- query: FindUserById
-	SELECT * FROM user WHERE id = :id;
-
-	-- query: UpdateUserFirstNameById
-	UPDATE user SET first_name = :first_name WHERE id = :id;
-	`
-	userQuery := UserQuery{}
-	err := sqload.FromString(sql, &userQuery)
-	if err != nil {
-		fmt.Printf("error loading user queries: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("FindUserById: %s\n", userQuery.FindUserById)
-	fmt.Printf("UpdateUserFirstNameById: %s\n", userQuery.UpdateUserFirstNameById)
+	fmt.Printf("- FindUserById\n%s\n\n", Q.FindUserById)
+	fmt.Printf("- UpdateFirstNameById\n%s\n\n", Q.UpdateFirstNameById)
+	fmt.Printf("- DeleteUserById\n%s\n\n", Q.DeleteUserById)
 }
 ```
 
-### Load SQL code from files
+### Load SQL code from files using `embed`
 
-`file: cat-queries.sql`
+Using the module `embed` to load your SQL files into strings and then passing those to `sqload` functions is a convenient approach.
+
+`file queries.sql:`
 ```sql
--- query: CreateCatTable
-CREATE TABLE Cat (
-    id SERIAL,
-    name VARCHAR(150),
-    color VARCHAR(50),
-    PRIMARY KEY (id)
-);
-
--- query: CreatePsychoCat
-INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
-
--- query: CreateNormalCat
-INSERT INTO Cat (name, color) VALUES (:name, :color);
-
--- query: UpdateColorById
-UPDATE Cat
-   SET color = :color
+-- query: FindUserById
+SELECT first_name,
+       last_name,
+       dob,
+       email
+  FROM user
  WHERE id = :id;
+
+-- query: UpdateFirstNameById
+UPDATE user
+   SET first_name = 'Ernesto'
+ WHERE id = :id;
+
+-- query: DeleteUserById
+DELETE FROM user
+      WHERE id = :id;
 ```
 
-`file: main.go`
+`file main.go:`
 ```go
 package main
 
 import (
+	_ "embed"
 	"fmt"
-	"os"
 
 	"github.com/midir99/sqload"
 )
 
-type CatQuery struct {
-	CreateCatTable  string `query:"CreateCatTable"`
-	CreatePsychoCat string `query:"CreatePsychoCat"`
-	CreateNormalCat string `query:"CreateNormalCat"`
-	UpdateColorById string `query:"UpdateColorById"`
-}
+//go:embed queries.sql
+var sqlCode string
+
+var Q = sqload.MustLoadFromString[struct {
+	FindUserById        string `query:"FindUserById"`
+	UpdateFirstNameById string `query:"UpdateFirstNameById"`
+	DeleteUserById      string `query:"DeleteUserById"`
+}](sqlCode)
 
 func main() {
-	catQuery := CatQuery{}
-	err := sqload.FromFile("cat-queries.sql", &catQuery)
-	if err != nil {
-		fmt.Printf("error loading cat queries: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("CreateCatTable: %s\n", catQuery.CreateCatTable)
-	fmt.Printf("CreatePsychoCat: %s\n", catQuery.CreatePsychoCat)
-	fmt.Printf("CreateNormalCat: %s\n", catQuery.CreateNormalCat)
-	fmt.Printf("UpdateColorById: %s\n", catQuery.UpdateColorById)
+	fmt.Printf("- FindUserById\n%s\n\n", Q.FindUserById)
+	fmt.Printf("- UpdateFirstNameById\n%s\n\n", Q.UpdateFirstNameById)
+	fmt.Printf("- DeleteUserById\n%s\n\n", Q.DeleteUserById)
 }
 ```
 
-### Load SQL code from directories containing .sql files
+### Load SQL code from directories containing .sql files using `embed`
 
 Lets say you have a directory containing your SQL files:
 ```
-sql/
-├── cat-queries.sql
-└── user-queries.sql
+.
+├── go.mod
+├── main.go
+└── sql           <- this one
+    ├── cats.sql
+    └── users.sql
 ```
 
-`file: cat-queries.sql`
+`File sql/cats.sql:`
 ```sql
--- query: CreateCatTable
-CREATE TABLE Cat (
-    id SERIAL,
-    name VARCHAR(150),
-    color VARCHAR(50),
-    PRIMARY KEY (id)
-);
-
 -- query: CreatePsychoCat
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
-
--- query: CreateNormalCat
-INSERT INTO Cat (name, color) VALUES (:name, :color);
-
--- query: UpdateColorById
-UPDATE Cat
-   SET color = :color
- WHERE id = :id;
 ```
 
-`file: user-queries.sql`
+`File sql/users.sql:`
 ```sql
--- query: FindUserById
-SELECT * FROM user WHERE id = :id;
-
--- query: UpdateUserFirstNameById
-UPDATE user SET first_name = :first_name WHERE id = :id;
+-- query: DeleteUserById
+DELETE FROM user WHERE id = :id;
 ```
 
-`file: main.go`
+`File main.go:`
 
 ```go
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 
 	"github.com/midir99/sqload"
 )
 
-type Query struct {
-	CreateCatTable  string `query:"CreateCatTable"`
-	CreatePsychoCat string `query:"CreatePsychoCat"`
-	CreateNormalCat string `query:"CreateNormalCat"`
-	UpdateColorById string `query:"UpdateColorById"`
-
-	FindUserById            string `query:"FindUserById"`
-	UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
-}
+//go:embed sql
+var fsys embed.FS
 
 func main() {
-	query := Query{}
-	err := sqload.FromDir("sql/", &query)
+	q, err := sqload.LoadFromFS[struct {
+		CreatePsychoCat string `query:"CreatePsychoCat"`
+		DeleteUserById  string `query:"DeleteUserById"`
+	}](fsys)
 	if err != nil {
-		fmt.Printf("error loading queries: %s\n", err)
+		fmt.Printf("Unable to load SQL queries: %s\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("CreateCatTable: %s\n", query.CreateCatTable)
-	fmt.Printf("CreatePsychoCat: %s\n", query.CreatePsychoCat)
-	fmt.Printf("CreateNormalCat: %s\n", query.CreateNormalCat)
-	fmt.Printf("UpdateColorById: %s\n", query.UpdateColorById)
-
-	fmt.Printf("FindUserById: %s\n", query.FindUserById)
-	fmt.Printf("UpdateUserFirstNameById: %s\n", query.UpdateUserFirstNameById)
+	fmt.Printf("- CreatePsychoCat\n%s\n\n", q.CreatePsychoCat)
+	fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
 }
 ```
+
+Check more examples in the official documentation: https://pkg.go.dev/github.com/midir99/sqload

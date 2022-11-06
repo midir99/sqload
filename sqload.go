@@ -323,7 +323,7 @@ func MustLoadFromFile[V Struct](filename string) *V {
 // File sql/cats.sql:
 //	-- query: CreatePsychoCat
 //	INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
-// File sql/users.sql
+// File sql/users.sql:
 //	-- query: DeleteUserById
 //	DELETE FROM user WHERE id = :id;
 // File main.go:
@@ -394,7 +394,7 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 // File sql/cats.sql:
 //	-- query: CreatePsychoCat
 //	INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
-// File sql/users.sql
+// File sql/users.sql:
 //	-- query: DeleteUserById
 //	DELETE FROM user WHERE id = :id;
 // File main.go:
