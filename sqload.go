@@ -1,35 +1,4 @@
 // Package sqload provides functions to load SQL code from strings or .sql files into tagged struct fields.
-//	package main
-//
-//	import (
-//		"fmt"
-//		"os"
-//
-//		"github.com/midir99/sqload"
-//	)
-//
-//	type UserQuery struct {
-//		FindUserById            string `query:"FindUserById"`
-//		UpdateUserFirstNameById string `query:"UpdateUserFirstNameById"`
-//	}
-//
-//	func main() {
-//		sql := `
-//		-- query: FindUserById
-//		SELECT * FROM user WHERE id = :id;
-//
-//		-- query: UpdateUserFirstNameById
-//		UPDATE user SET first_name = :first_name WHERE id = :id;
-//		`
-//		userQuery := UserQuery{}
-//		err := sqload.FromString(sql, &userQuery)
-//		if err != nil {
-//			fmt.Printf("error loading user queries: %s\n", err)
-//			os.Exit(1)
-//		}
-//		fmt.Printf("FindUserById: %s\n", userQuery.FindUserById)
-//		fmt.Printf("UpdateUserFirstNameById: %s\n", userQuery.UpdateUserFirstNameById)
-//	}
 package sqload
 
 import (
@@ -74,7 +43,7 @@ func extractQueries(sql string) (map[string]string, error) {
 	return queries, nil
 }
 
-func filterFilesByExt(fsys fs.FS, ext string) ([]string, error) {
+func findFilesWithExt(fsys fs.FS, ext string) ([]string, error) {
 	files := []string{}
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -125,28 +94,21 @@ func loadQueriesIntoStruct(queries map[string]string, v any) error {
 }
 
 func cat(fsys fs.FS, filenames []string) (string, error) {
-	txt := ""
+	lines := []string{}
 	for _, filename := range filenames {
 		data, err := fs.ReadFile(fsys, filename)
 		if err != nil {
 			return "", err
 		}
-		txt = txt + "\n" + string(data)
+		lines = append(lines, string(data))
 	}
+	txt := strings.Join(lines, "\n")
 	return txt, nil
 }
 
-// FromString loads the SQL code from the string passed and stores the queries in the
+// LoadFromString loads the SQL code from the string passed and stores the queries in the
 // struct pointed to by v, v must be a pointer to a struct with tags, and each tag
 // indicates what query will be stored in what field.
-func FromString(s string, v any) error {
-	queries, err := extractQueries(s)
-	if err != nil {
-		return err
-	}
-	return loadQueriesIntoStruct(queries, v)
-}
-
 func LoadFromString[V any](s string) (*V, error) {
 	var v V
 	queries, err := extractQueries(s)
@@ -160,17 +122,17 @@ func LoadFromString[V any](s string) (*V, error) {
 	return &v, nil
 }
 
-// FromFile loads the SQL code from the file filename and stores the queries in the struct
-// pointed to by v, v must be a pointer to a struct with tags, and each tag indicates
-// what query will be stored in what field.
-func FromFile(filename string, v any) error {
-	data, err := os.ReadFile(filename)
+func MustLoadFromString[V any](s string) *V {
+	v, err := LoadFromString[V](s)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	return FromString(string(data), v)
+	return v
 }
 
+// LoadFromFile loads the SQL code from the file filename and stores the queries in the struct
+// pointed to by v, v must be a pointer to a struct with tags, and each tag indicates
+// what query will be stored in what field.
 func LoadFromFile[V any](filename string) (*V, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -179,39 +141,21 @@ func LoadFromFile[V any](filename string) (*V, error) {
 	return LoadFromString[V](string(data))
 }
 
-// FromDir loads the SQL code from all the .sql files in the directory dirname
+func MustLoadFromFile[V any](filename string) *V {
+	v, err := LoadFromFile[V](filename)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// LoadFromDir loads the SQL code from all the .sql files in the directory dirname
 // (recursively) and stores the queries in the struct pointed to by v, v must be a
 // pointer to a struct with tags, and each tag indicates what query will be stored in
 // what field.
-func FromDir(dirname string, v any) error {
-	files, err := filterFilesByExt(dirname, ".sql")
-	if err != nil {
-		return err
-	}
-	queries := map[string]string{}
-	for _, file := range files {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		moreQueries, err := extractQueries(string(data))
-		if err != nil {
-			return err
-		}
-		for k, v := range moreQueries {
-			queries[k] = v
-		}
-	}
-	err = loadQueriesIntoStruct(queries, v)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func LoadFromDir[V any](dirname string) (*V, error) {
 	fsys := os.DirFS(dirname)
-	files, err := filterFilesByExt(fsys, ".sql")
+	files, err := findFilesWithExt(fsys, ".sql")
 	if err != nil {
 		return nil, err
 	}
@@ -220,11 +164,18 @@ func LoadFromDir[V any](dirname string) (*V, error) {
 		return nil, err
 	}
 	return LoadFromString[V](sql)
+}
+
+func MustLoadFromDir[V any](dirname string) *V {
+	v, err := LoadFromDir[V](dirname)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 func LoadFromFS[V any](fsys fs.FS) (*V, error) {
-	files := []string{}
-	files, err := filterFilesByExt(fsys, ".sql")
+	files, err := findFilesWithExt(fsys, ".sql")
 	if err != nil {
 		return nil, err
 	}
@@ -233,4 +184,12 @@ func LoadFromFS[V any](fsys fs.FS) (*V, error) {
 		return nil, err
 	}
 	return LoadFromString[V](sql)
+}
+
+func MustLoadFromFS[V any](fsys fs.FS) *V {
+	v, err := LoadFromFS[V](fsys)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

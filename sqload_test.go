@@ -2,6 +2,8 @@ package sqload
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
 	"strings"
 	"testing"
 )
@@ -221,57 +223,57 @@ func TestExtractQueries(t *testing.T) {
 	}
 }
 
-func TestFindFilesWithExtension(t *testing.T) {
+func TestFindFilesWithExt(t *testing.T) {
 	type Want struct {
 		files []string
 		err   error
 	}
 	testCases := []struct {
-		dir  string
+		fsys fs.FS
 		ext  string
 		want Want
 	}{
 		{
-			"testdata/test-find-files-with-extension/",
+			os.DirFS("testdata/test-find-files-with-ext/"),
 			".sql",
 			Want{
 				[]string{
-					"testdata/test-find-files-with-extension/dogs.sql",
-					"testdata/test-find-files-with-extension/love/u.sql",
-					"testdata/test-find-files-with-extension/more-files/even-more-files/random-queries.sql",
+					"dogs.sql",
+					"love/u.sql",
+					"more-files/even-more-files/random-queries.sql",
 				},
 				nil,
 			},
 		},
 		{
-			"testdata/test-find-files-with-extension/",
+			os.DirFS("testdata/test-find-files-with-ext/"),
 			".txt",
 			Want{
 				[]string{
-					"testdata/test-find-files-with-extension/more-files/words-dont-come-easy.txt",
+					"more-files/words-dont-come-easy.txt",
 				},
 				nil,
 			},
 		},
 		{
-			"testdata/test-find-files-with-extension/",
+			os.DirFS("testdata/test-find-files-with-ext/"),
 			".txt",
 			Want{
 				[]string{
-					"testdata/test-find-files-with-extension/more-files/words-dont-come-easy.txt",
+					"more-files/words-dont-come-easy.txt",
 				},
 				nil,
 			},
 		},
 		{
-			"testdata/test-find-files-with-extension/",
+			os.DirFS("testdata/test-find-files-with-ext/"),
 			".py",
 			Want{[]string{}, nil},
 		},
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			sqlFiles, err := filterFilesByExt(testCase.dir, testCase.ext)
+			sqlFiles, err := findFilesWithExt(testCase.fsys, testCase.ext)
 			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
 				t.Fatalf("got %v, want %v", err, testCase.want.err)
 			}
@@ -290,7 +292,7 @@ func TestFindFilesWithExtension(t *testing.T) {
 }
 
 func TestLoadQueriesIntoStruct(t *testing.T) {
-	// create test cases to test that the function only accepts pointers to structs
+	// Create test cases to test that the function only accepts pointers to structs
 	var nilPtr *int = nil
 	num := 1
 	intPtr := &num
@@ -336,7 +338,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 			}
 		})
 	}
-	// create a struct that does not use strings
+	// Create a struct that does not use strings
 	type InvalidCatQuery struct {
 		CreateCatTable int `query:"CreateCatTable"`
 	}
@@ -346,7 +348,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
 	}
-	// create a struct that has a query that the cat-queries.sql file do not
+	// Create a struct that has a query that the cat-queries.sql file do not
 	type MissingCatQueries struct {
 		DeleteCatById int `query:"DeleteCatById"`
 	}
@@ -356,7 +358,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
 	}
-	// create struct to hold the queries
+	// Create struct to hold the queries
 	type CatQuery struct {
 		CreateCatTable  string `query:"CreateCatTable"`
 		CreatePsychoCat string `query:"CreatePsychoCat"`
@@ -366,7 +368,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	catQuery := CatQuery{}
 	err = loadQueriesIntoStruct(CatTestQueries, &catQuery)
 	if err != nil {
-		t.Fatalf("err must be nil, got: %s", err)
+		t.Fatalf("err must be nil, got %s", err)
 	}
 	if catQuery.CreateCatTable != CatTestQueries["CreateCatTable"] {
 		t.Errorf("got %s, want %s", catQuery.CreateCatTable, CatTestQueries["CreateCatTable"])
@@ -382,40 +384,23 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}
 }
 
-func TestFromString(t *testing.T) {
-	sql := `
-	-- query: invalid-name
-	`
-	err := FromString(sql, 1)
-	want := fmt.Errorf("invalid query name: invalid-name")
-	if fmt.Sprint(err) != fmt.Sprint(want) {
-		t.Errorf("got %s, want %s", err, want)
-	}
-	sql = strings.TrimSpace(`
--- query: CreateCatTable
-CREATE TABLE Cat (
-    id SERIAL,
-    name VARCHAR(150),
-    color VARCHAR(50),
-
-    PRIMARY KEY (id)
-);
--- query: CreatePsychoCat
-INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
-	type CatQuery struct {
-		CreateCatTable  string `query:"CreateCatTable"`
-		CreatePsychoCat string `query:"CreatePsychoCat"`
-	}
-	catQuery := CatQuery{}
-	err = FromString(sql, &catQuery)
+func TestCat(t *testing.T) {
+	fsys := os.DirFS("testdata/test-cat")
+	txt, err := cat(fsys, []string{"file1.txt", "file2.txt"})
 	if err != nil {
-		t.Fatalf("err must be nil, got: %s", err)
+		t.Fatalf("err must be nil, got %s", err)
 	}
-	if catQuery.CreateCatTable != CatTestQueries["CreateCatTable"] {
-		t.Errorf("got %s, want %s", catQuery.CreateCatTable, CatTestQueries["CreateCatTable"])
+	wantedTxt := `Some text around here...
+
+Even more text around there...
+`
+	if txt != wantedTxt {
+		t.Fatalf("got %s, want %s", txt, wantedTxt)
 	}
-	if catQuery.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
-		t.Errorf("got %s, want %s", catQuery.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
+	fsys = os.DirFS("testdata/i-dont-exist")
+	_, err = cat(fsys, []string{"i-dont-exist.sql"})
+	if err == nil {
+		t.Fatalf("err must not be nil")
 	}
 }
 
@@ -426,7 +411,7 @@ func TestLoadFromString(t *testing.T) {
 	_, err := LoadFromString[struct{}](sql)
 	want := fmt.Errorf("invalid query name: invalid-name")
 	if fmt.Sprint(err) != fmt.Sprint(want) {
-		t.Errorf("got %s, want %s", err, want)
+		t.Fatalf("got %s, want %s", err, want)
 	}
 	sql = strings.TrimSpace(`
 -- query: CreateCatTable
@@ -439,12 +424,16 @@ CREATE TABLE Cat (
 );
 -- query: CreatePsychoCat
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
+	_, err = LoadFromString[int](sql)
+	if err == nil {
+		t.Fatal("err is nil")
+	}
 	q, err := LoadFromString[struct {
 		CreateCatTable  string `query:"CreateCatTable"`
 		CreatePsychoCat string `query:"CreatePsychoCat"`
 	}](sql)
 	if err != nil {
-		t.Fatalf("err must be nil, got: %s", err)
+		t.Fatalf("err must be nil, got %s", err)
 	}
 	if q.CreateCatTable != CatTestQueries["CreateCatTable"] {
 		t.Errorf("got %s, want %s", q.CreateCatTable, CatTestQueries["CreateCatTable"])
@@ -454,6 +443,24 @@ INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
 	}
 }
 
+func TestMustLoadFromString(t *testing.T) {
+	// Test that the function panics if any error occurs
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("function did not panic")
+			}
+		}()
+		sql := `
+		-- query: invalid-name
+		`
+		MustLoadFromString[struct{}](sql)
+	}()
+	// Test that the function does not panic if no errors occur
+	sql := ""
+	MustLoadFromString[struct{}](sql)
+}
+
 func TestFromFile(t *testing.T) {
 	type CatQuery struct {
 		CreateCatTable  string `query:"CreateCatTable"`
@@ -461,12 +468,11 @@ func TestFromFile(t *testing.T) {
 		CreateNormalCat string `query:"CreateNormalCat"`
 		UpdateColorById string `query:"UpdateColorById"`
 	}
-	catQuery := CatQuery{}
-	err := FromFile("testdata/i-dont-exist.sql", &catQuery)
+	_, err := LoadFromFile[CatQuery]("testdata/i-dont-exist.sql")
 	if err == nil {
-		t.Errorf("file testdata/i-dont-exist.sql must not exists so this test can fail")
+		t.Fatalf("file testdata/i-dont-exist.sql must not exists so this test can fail")
 	}
-	err = FromFile("testdata/cat-queries.sql", &catQuery)
+	catQuery, err := LoadFromFile[CatQuery]("testdata/cat-queries.sql")
 	if err != nil {
 		t.Fatalf("error loading testdata/cat-queries.sql: %s", err)
 	}
@@ -484,7 +490,21 @@ func TestFromFile(t *testing.T) {
 	}
 }
 
-func TestFromDir(t *testing.T) {
+func TestMustLoadFromFile(t *testing.T) {
+	// Test that the function panics if any error occurs
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("function did not panic")
+			}
+		}()
+		MustLoadFromFile[struct{}]("testdata/i-dont-exist.sql")
+	}()
+	// Test that the function does not panic if no errors occur
+	MustLoadFromFile[struct{}]("testdata/cat-queries.sql")
+}
+
+func TestLoadFromDir(t *testing.T) {
 	type RandomQuery struct {
 		CreateCatTable      string `query:"CreateCatTable"`
 		CreatePsychoCat     string `query:"CreatePsychoCat"`
@@ -495,14 +515,34 @@ func TestFromDir(t *testing.T) {
 		DeleteUserById      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
 	}
-	queries := RandomQuery{}
-	err := FromDir("testdata/i-dont-exist/", &queries)
+	// Test that the function fails when the directory does not exist
+	_, err := LoadFromDir[RandomQuery]("testdata/i-dont-exist")
 	if err == nil {
-		t.Errorf("dir testdata/i-dont-exist/ must not exists so this test can fail")
+		t.Fatalf("dir testdata/i-dont-exist must not exists so this test can fail")
 	}
-	err = FromDir("testdata/test-from-dir/", &queries)
+	// Test that the function fails when it can not read some .sql file
+	unreadableFilename := "testdata/test-load-from-dir/unreadable-file.sql"
+	unreadableFile, err := os.Create(unreadableFilename)
 	if err != nil {
-		t.Fatalf("error loading testdata/test-from-dir/: %s", err)
+		t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+	}
+	defer unreadableFile.Close()
+	err = os.Chmod(unreadableFilename, 0222)
+	if err != nil {
+		t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+	}
+	_, err = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
+	if err == nil {
+		t.Fatal("error is nil")
+	}
+	err = os.Remove(unreadableFilename)
+	if err != nil {
+		t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+	}
+	// Test that the function succeeds when using the happy path
+	queries, err := LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
+	if err != nil {
+		t.Fatalf("error loading testdata/test-load-from-dir: %s", err)
 	}
 	if queries.CreateCatTable != CatTestQueries["CreateCatTable"] {
 		t.Errorf("got %s, want %s", queries.CreateCatTable, CatTestQueries["CreateCatTable"])
@@ -528,4 +568,103 @@ func TestFromDir(t *testing.T) {
 	if queries.FindRiders != RiderTestQueries["FindRiders"] {
 		t.Errorf("got %s, want %s", queries.FindRiders, RiderTestQueries["FindRiders"])
 	}
+}
+
+func TestMustLoadFromDir(t *testing.T) {
+	// Test that the function panics if any error occurs
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("function did not panic")
+			}
+		}()
+		MustLoadFromDir[struct{}]("testdata/i-dont-exist")
+	}()
+	// Test that the function does not panic if no errors occur
+	MustLoadFromDir[struct{}]("testdata/test-load-from-dir")
+}
+
+func TestLoadFromFS(t *testing.T) {
+	type RandomQuery struct {
+		CreateCatTable      string `query:"CreateCatTable"`
+		CreatePsychoCat     string `query:"CreatePsychoCat"`
+		CreateNormalCat     string `query:"CreateNormalCat"`
+		UpdateColorById     string `query:"UpdateColorById"`
+		FindUserById        string `query:"FindUserById"`
+		UpdateFirstNameById string `query:"UpdateFirstNameById"`
+		DeleteUserById      string `query:"DeleteUserById"`
+		FindRiders          string `query:"FindRiders"`
+	}
+	// Test that the function fails when the directory does not exist
+	fsys := os.DirFS("testdata/i-dont-exist")
+	_, err := LoadFromFS[RandomQuery](fsys)
+	if err == nil {
+		t.Fatalf("dir testdata/i-dont-exist must not exists so this test can fail")
+	}
+	// Test that the function fails when it can not read some .sql file
+	unreadableFilename := "testdata/test-load-from-fs/unreadable-file.sql"
+	unreadableFile, err := os.Create(unreadableFilename)
+	if err != nil {
+		t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+	}
+	defer unreadableFile.Close()
+	err = os.Chmod(unreadableFilename, 0222)
+	if err != nil {
+		t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+	}
+	fsys = os.DirFS("testdata/test-load-from-fs")
+	_, err = LoadFromFS[RandomQuery](fsys)
+	if err == nil {
+		t.Fatal("error is nil")
+	}
+	err = os.Remove(unreadableFilename)
+	if err != nil {
+		t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+	}
+	// Test that the function succeeds when using the happy path
+	fsys = os.DirFS("testdata/test-load-from-fs")
+	queries, err := LoadFromFS[RandomQuery](fsys)
+	if err != nil {
+		t.Fatalf("error loading testdata/test-load-from-fs: %s", err)
+	}
+	if queries.CreateCatTable != CatTestQueries["CreateCatTable"] {
+		t.Errorf("got %s, want %s", queries.CreateCatTable, CatTestQueries["CreateCatTable"])
+	}
+	if queries.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
+		t.Errorf("got %s, want %s", queries.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
+	}
+	if queries.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
+		t.Errorf("got %s, want %s", queries.CreateNormalCat, CatTestQueries["CreateNormalCat"])
+	}
+	if queries.UpdateColorById != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", queries.UpdateColorById, CatTestQueries["UpdateColorById"])
+	}
+	if queries.FindUserById != UserTestQueries["FindUserById"] {
+		t.Errorf("got %s, want %s", queries.FindUserById, UserTestQueries["FindUserById"])
+	}
+	if queries.UpdateFirstNameById != UserTestQueries["UpdateFirstNameById"] {
+		t.Errorf("got %s, want %s", queries.UpdateFirstNameById, UserTestQueries["UpdateFirstNameById"])
+	}
+	if queries.DeleteUserById != UserTestQueries["DeleteUserById"] {
+		t.Errorf("got %s, want %s", queries.DeleteUserById, UserTestQueries["DeleteUserById"])
+	}
+	if queries.FindRiders != RiderTestQueries["FindRiders"] {
+		t.Errorf("got %s, want %s", queries.FindRiders, RiderTestQueries["FindRiders"])
+	}
+}
+
+func TestMustLoadFromFS(t *testing.T) {
+	// Test that the function panics if any error occurs
+	func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("function did not panic")
+			}
+		}()
+		fsys := os.DirFS("testdata/i-dont-exist")
+		MustLoadFromFS[struct{}](fsys)
+	}()
+	// Test that the function does not panic if no errors occur
+	fsys := os.DirFS("testdata/test-load-from-fs")
+	MustLoadFromFS[struct{}](fsys)
 }
