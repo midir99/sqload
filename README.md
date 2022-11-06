@@ -1,5 +1,8 @@
 # sqload
 
+[![Build Status](https://api.travis-ci.org/midir99/sqload.svg)](https://travis-ci.org/midir99/sqload)
+[![Coverage Status](https://coveralls.io/repos/github/midir99/sqload/badge.svg?branch=main)](https://coveralls.io/github/midir99/sqload?branch=main)
+
 https://pkg.go.dev/github.com/midir99/sqload
 
 Personally, I don't like writing SQL code inside the Go source files, so I made this simple and thoroughly tested module to load SQL queries from files.
