@@ -5,7 +5,7 @@ go:
   - 1.19
 
 before_install:
-  - go install github.com/mattn/goveralls
+  - go install github.com/mattn/goveralls@latest
   - go install golang.org/x/tools/cmd/cover
 
 script:
