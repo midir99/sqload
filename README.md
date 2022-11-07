@@ -67,11 +67,11 @@ func main() {
 }
 ```
 
-### Load SQL code from files using `embed`
+### Load SQL code from files using embed
 
-Using the module `embed` to load your SQL files into strings and then passing those to `sqload` functions is a convenient approach.
+Using the module embed to load your SQL files into strings and then passing those to sqload functions is a convenient approach.
 
-`file queries.sql:`
+File queries.sql:
 ```sql
 -- query: FindUserById
 SELECT first_name,
@@ -91,7 +91,7 @@ DELETE FROM user
       WHERE id = :id;
 ```
 
-`file main.go:`
+File main.go:
 ```go
 package main
 
@@ -118,7 +118,7 @@ func main() {
 }
 ```
 
-### Load SQL code from directories containing .sql files using `embed`
+### Load SQL code from directories containing .sql files using embed
 
 Lets say you have a directory containing your SQL files:
 ```
@@ -130,27 +130,25 @@ Lets say you have a directory containing your SQL files:
     └── users.sql
 ```
 
-`File sql/cats.sql:`
+File sql/cats.sql:
 ```sql
 -- query: CreatePsychoCat
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
 ```
 
-`File sql/users.sql:`
+File sql/users.sql:
 ```sql
 -- query: DeleteUserById
 DELETE FROM user WHERE id = :id;
 ```
 
-`File main.go:`
-
+File main.go:
 ```go
 package main
 
 import (
 	"embed"
 	"fmt"
-	"os"
 
 	"github.com/midir99/sqload"
 )
@@ -158,17 +156,14 @@ import (
 //go:embed sql
 var fsys embed.FS
 
+var Q = sqload.MustLoadFromFS[struct {
+	CreatePsychoCat string `query:"CreatePsychoCat"`
+	DeleteUserById  string `query:"DeleteUserById"`
+}](fsys)
+
 func main() {
-	q, err := sqload.LoadFromFS[struct {
-		CreatePsychoCat string `query:"CreatePsychoCat"`
-		DeleteUserById  string `query:"DeleteUserById"`
-	}](fsys)
-	if err != nil {
-		fmt.Printf("Unable to load SQL queries: %s\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("- CreatePsychoCat\n%s\n\n", q.CreatePsychoCat)
-	fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
+	fmt.Printf("- CreatePsychoCat\n%s\n\n", Q.CreatePsychoCat)
+	fmt.Printf("- DeleteUserById\n%s\n\n", Q.DeleteUserById)
 }
 ```
 
