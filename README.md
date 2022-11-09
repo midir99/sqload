@@ -10,12 +10,15 @@ This library is inspired by [Yesql](https://github.com/krisajenkins/yesql/).
 
 ## How to use it?
 
+Add sqload to your go.mod file running the following command:
+```
+$ go get github.com/midir99/sqload
+```
+
 Each SQL query must include a comment at the beginning; the comment must be something like:
 
 ```sql
 -- query: FindCatById
--- Finds a cat by its id (optionally, you can add comments to describe your queries;
--- sqload won't include these comments on the final query string).
 SELECT * FROM cat WHERE id = :id;
 ```
 
@@ -75,6 +78,8 @@ Using the module embed to load your SQL files into strings and then passing thos
 File queries.sql:
 ```sql
 -- query: FindUserById
+-- Finds a user by its id (optionally, you can add comments to describe your queries;
+-- sqload won't include these comments on the final query string).
 SELECT first_name,
        last_name,
        dob,
