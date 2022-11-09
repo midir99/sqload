@@ -1,9 +1,8 @@
 # sqload
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/midir99/sqload.svg)](https://pkg.go.dev/github.com/midir99/sqload)
 [![Build Status](https://api.travis-ci.org/midir99/sqload.svg)](https://travis-ci.org/midir99/sqload)
 [![Coverage Status](https://coveralls.io/repos/github/midir99/sqload/badge.svg?branch=main)](https://coveralls.io/github/midir99/sqload?branch=main)
-
-https://pkg.go.dev/github.com/midir99/sqload
 
 Personally, I don't like writing SQL code inside the Go source files, so I made this simple and thoroughly tested module to load SQL queries from files.
 
@@ -15,6 +14,8 @@ Each SQL query must include a comment at the beginning; the comment must be some
 
 ```sql
 -- query: FindCatById
+-- Finds a cat by its id (optionally, you can add comments to describe your queries;
+-- sqload won't include these comments on the final query string).
 SELECT * FROM cat WHERE id = :id;
 ```
 
@@ -133,6 +134,7 @@ Lets say you have a directory containing your SQL files:
 File sql/cats.sql:
 ```sql
 -- query: CreatePsychoCat
+-- Run, run, run, run, run, run, run away, oh-oh-oh!
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
 ```
 
