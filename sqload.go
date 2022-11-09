@@ -5,6 +5,7 @@
 //
 // File queries.sql:
 //	-- query: FindUserById
+//	-- Finds a user by its id.
 //	SELECT first_name,
 //	       last_name,
 //	       dob,
@@ -18,6 +19,7 @@
 //	 WHERE id = :id;
 //
 //	-- query: DeleteUserById
+//	-- Deletes a user by its id.
 //	DELETE FROM user
 //	      WHERE id = :id;
 // You could load the SQL code of those queries into strings using the following:

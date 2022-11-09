@@ -9,6 +9,7 @@ CREATE TABLE Cat (
 
 
 -- query: CreatePsychoCat
+-- Run, run, run, run, run, run, run away, oh-oh-oh!
 INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
 
 
