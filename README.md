@@ -1,6 +1,7 @@
 # sqload
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/midir99/sqload.svg)](https://pkg.go.dev/github.com/midir99/sqload)
+[![Go Report Card](https://goreportcard.com/badge/github.com/midir99/sqload)](https://goreportcard.com/report/github.com/midir99/sqload)
 [![Build Status](https://api.travis-ci.org/midir99/sqload.svg)](https://travis-ci.org/midir99/sqload)
 [![Coverage Status](https://coveralls.io/repos/github/midir99/sqload/badge.svg?branch=main)](https://coveralls.io/github/midir99/sqload?branch=main)
 
