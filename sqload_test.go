@@ -472,7 +472,25 @@ func TestFromFile(t *testing.T) {
 	if err == nil {
 		t.Fatalf("file testdata/i-dont-exist.sql must not exists so this test can fail")
 	}
+	// test using LF line endings
 	catQuery, err := LoadFromFile[CatQuery]("testdata/cat-queries.sql")
+	if err != nil {
+		t.Fatalf("error loading testdata/cat-queries.sql: %s", err)
+	}
+	if catQuery.CreateCatTable != CatTestQueries["CreateCatTable"] {
+		t.Errorf("got %s, want %s", catQuery.CreateCatTable, CatTestQueries["CreateCatTable"])
+	}
+	if catQuery.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
+		t.Errorf("got %s, want %s", catQuery.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
+	}
+	if catQuery.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
+		t.Errorf("got %s, want %s", catQuery.CreateNormalCat, CatTestQueries["CreateNormalCat"])
+	}
+	if catQuery.UpdateColorById != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", catQuery.UpdateColorById, CatTestQueries["UpdateColorById"])
+	}
+	// test using CRLF line endings
+	catQuery, err = LoadFromFile[CatQuery]("testdata/cat-queries.crlf.sql")
 	if err != nil {
 		t.Fatalf("error loading testdata/cat-queries.sql: %s", err)
 	}

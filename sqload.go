@@ -72,6 +72,7 @@ type Struct interface{}
 var queryNamePattern = regexp.MustCompile(`[ \t\n\r\f\v]*-- query:`)
 var validQueryNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 var queryCommentPattern = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
+var newLinePattern = regexp.MustCompile("\r?\n")
 
 func extractSql(lines []string) string {
 	sqlLines := []string{}
@@ -90,7 +91,7 @@ func extractQueries(sql string) (map[string]string, error) {
 		return queries, nil
 	}
 	for _, q := range rawQueries[1:] {
-		lines := strings.Split(strings.TrimSpace(q), "\n")
+		lines := newLinePattern.Split(strings.TrimSpace(q), -1)
 		queryName := lines[0]
 		if !validQueryNamePattern.MatchString(queryName) {
 			return nil, fmt.Errorf("invalid query name: %s", queryName)
