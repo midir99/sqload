@@ -69,6 +69,8 @@ import (
 // a struct.
 type Struct interface{}
 
+type QueriesMap map[string]string
+
 var queryNamePattern = regexp.MustCompile(`[ \t\n\r\f\v]*-- query:`)
 var validQueryNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 var queryCommentPattern = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
@@ -133,6 +135,14 @@ func loadQueriesIntoStruct(queries map[string]string, v Struct) error {
 	}
 	queriesAndFields := map[string]int{}
 	for i := 0; i < elem.NumField(); i++ {
+		fieldType := elem.Type().Field(i).Type
+		if fieldType.PkgPath() == "github.com/midir99/sqload" && fieldType.Name() == "QueriesMap" {
+			field := elem.Field(i)
+			if !field.CanSet() {
+				return fmt.Errorf("field %s cannot be changed", elem.Type().Field(i).Name)
+			}
+			field.Set(reflect.ValueOf(queries))
+		}
 		queryTag := elem.Type().Field(i).Tag.Get("query")
 		if queryTag != "" {
 			queriesAndFields[queryTag] = i
