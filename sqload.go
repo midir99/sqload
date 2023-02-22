@@ -165,6 +165,59 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 	return txt, nil
 }
 
+func QueriesFromString(sql string) (map[string]string, error) {
+	return extractQueries(sql)
+}
+
+func QueriesFromFile(filename string) (map[string]string, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return extractQueries(string(data))
+}
+
+func QueriesFromDir(dirname string) (map[string]string, error) {
+	fsys := os.DirFS(dirname)
+	files, err := findFilesWithExt(fsys, ".sql")
+	if err != nil {
+		return nil, err
+	}
+	sql, err := cat(fsys, files)
+	if err != nil {
+		return nil, err
+	}
+	return extractQueries(sql)
+}
+
+func QueriesFromFS(fsys fs.FS) (map[string]string, error) {
+	files, err := findFilesWithExt(fsys, ".sql")
+	if err != nil {
+		return nil, err
+	}
+	sql, err := cat(fsys, files)
+	if err != nil {
+		return nil, err
+	}
+	return extractQueries(sql)
+}
+
+func Load[V Struct](m map[string]string) (*V, error) {
+	var v V
+	err := loadQueriesIntoStruct(m, &v)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func Must(m map[string]string, err error) map[string]string {
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
 // LoadFromString loads the SQL code from the string and returns a pointer to a struct.
 // Each struct field will contain the SQL query code it was tagged with.
 //
@@ -211,16 +264,11 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 //		fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
 //	}
 func LoadFromString[V Struct](s string) (*V, error) {
-	var v V
-	queries, err := extractQueries(s)
+	q, err := QueriesFromString(s)
 	if err != nil {
 		return nil, err
 	}
-	err = loadQueriesIntoStruct(queries, &v)
-	if err != nil {
-		return nil, err
-	}
-	return &v, nil
+	return Load[V](q)
 }
 
 // MustLoadFromString is like LoadFromString but panics if any error occurs. It
@@ -286,11 +334,11 @@ func MustLoadFromString[V Struct](s string) *V {
 //		fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
 //	}
 func LoadFromFile[V Struct](filename string) (*V, error) {
-	data, err := os.ReadFile(filename)
+	q, err := QueriesFromFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return LoadFromString[V](string(data))
+	return Load[V](q)
 }
 
 // MustLoadFromFile is like LoadFromFile but panics if any error occurs. It simplifies
@@ -352,16 +400,11 @@ func MustLoadFromFile[V Struct](filename string) *V {
 //		fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
 //	}
 func LoadFromDir[V Struct](dirname string) (*V, error) {
-	fsys := os.DirFS(dirname)
-	files, err := findFilesWithExt(fsys, ".sql")
+	q, err := QueriesFromDir(dirname)
 	if err != nil {
 		return nil, err
 	}
-	sql, err := cat(fsys, files)
-	if err != nil {
-		return nil, err
-	}
-	return LoadFromString[V](sql)
+	return Load[V](q)
 }
 
 // MustLoadFromDir is like LoadFromDir but panics if any error occurs. It simplifies the
@@ -427,15 +470,11 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 //		fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
 //	}
 func LoadFromFS[V Struct](fsys fs.FS) (*V, error) {
-	files, err := findFilesWithExt(fsys, ".sql")
+	q, err := QueriesFromFS(fsys)
 	if err != nil {
 		return nil, err
 	}
-	sql, err := cat(fsys, files)
-	if err != nil {
-		return nil, err
-	}
-	return LoadFromString[V](sql)
+	return Load[V](q)
 }
 
 // MustLoadFromFS is like LoadFromFS but panics if any error occurs. It simplifies the
