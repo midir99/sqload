@@ -84,7 +84,44 @@ func extractSql(lines []string) string {
 	return strings.Join(sqlLines, "\n")
 }
 
-func extractQueries(sql string) (map[string]string, error) {
+// ExtractQueryMap extracts the SQL code from the string and returns a map containing the queries.
+// The query name is the key in each map entry, and the SQL code is its value.
+//
+//	package main
+//
+//	import (
+//	        "fmt"
+//	        "os"
+//
+//	        "github.com/midir99/sqload"
+//	)
+//
+//	func main() {
+//	        q, err := sqload.ExtractQueryMap(`
+//	-- query: FindUserById
+//	SELECT first_name,
+//	       last_name,
+//	       dob,
+//	       email
+//	  FROM user
+//	 WHERE id = :id;
+//
+//	-- query: DeleteUserById
+//	DELETE FROM user
+//	      WHERE id = :id;
+//	        `)
+//	        if err != nil {
+//	                fmt.Printf("Unable to load SQL queries: %s\n", err)
+//	                os.Exit(1)
+//	        }
+//	        if findUserById, found := q["FindUserById"]; found {
+//	                fmt.Printf("- FindUserById\n%s\n\n", findUserById)
+//	        }
+//	        for k, v := range q {
+//	                fmt.Printf("- %s\n%s\n\n", k, v)
+//	        }
+//	}
+func ExtractQueryMap(sql string) (map[string]string, error) {
 	queries := make(map[string]string)
 	rawQueries := queryNamePattern.Split(sql, -1)
 	if len(rawQueries) <= 1 {
@@ -212,7 +249,7 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 //	}
 func LoadFromString[V Struct](s string) (*V, error) {
 	var v V
-	queries, err := extractQueries(s)
+	queries, err := ExtractQueryMap(s)
 	if err != nil {
 		return nil, err
 	}
