@@ -116,7 +116,7 @@ func TestExtractSql(t *testing.T) {
 	}
 }
 
-func TestExtractQueries(t *testing.T) {
+func TestExtractQueryMap(t *testing.T) {
 	type Want struct {
 		queries map[string]string
 		err     error
@@ -201,7 +201,7 @@ func TestExtractQueries(t *testing.T) {
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			queries, err := extractQueries(testCase.sql)
+			queries, err := ExtractQueryMap(testCase.sql)
 			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
 				t.Fatalf("got %v, want %v", err, testCase.want.err)
 			}
