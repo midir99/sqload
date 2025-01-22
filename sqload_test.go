@@ -1,9 +1,11 @@
 package sqload
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -168,7 +170,7 @@ func TestExtractQueryMap(t *testing.T) {
 			"-- query: not-a-valid-query-name",
 			Want{
 				map[string]string{},
-				fmt.Errorf("invalid query name: not-a-valid-query-name"),
+				fmt.Errorf("%w: invalid query name not-a-valid-query-name", ErrCannotLoadQueries),
 			},
 		},
 		{
@@ -180,7 +182,7 @@ func TestExtractQueryMap(t *testing.T) {
 			),
 			Want{
 				map[string]string{},
-				fmt.Errorf("invalid query name: "),
+				fmt.Errorf("%w: invalid query name ", ErrCannotLoadQueries),
 			},
 		},
 		{
@@ -202,8 +204,18 @@ func TestExtractQueryMap(t *testing.T) {
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			queries, err := ExtractQueryMap(testCase.sql)
-			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
-				t.Fatalf("got %v, want %v", err, testCase.want.err)
+			if err != nil {
+				if !errors.Is(err, ErrCannotLoadQueries) {
+					t.Fatalf("error %v does not wrap %v", err, ErrCannotLoadQueries)
+				}
+				if testCase.want.err == nil {
+					t.Fatalf("got %v, want no error", err)
+				}
+				if err.Error() != testCase.want.err.Error() {
+					t.Fatalf("got %v, want %v", err, testCase.want.err)
+				}
+			} else if testCase.want.err != nil {
+				t.Fatalf("got no error, want %v", testCase.want.err)
 			}
 			queriesLen := len(queries)
 			wantedLen := len(testCase.want.queries)
@@ -302,31 +314,31 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}{
 		{
 			1,
-			fmt.Errorf("v is not a pointer to a struct"),
+			fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries),
 		},
 		{
 			"",
-			fmt.Errorf("v is not a pointer to a struct"),
+			fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries),
 		},
 		{
 			struct{ CreateCatTable string }{},
-			fmt.Errorf("v is not a pointer to a struct"),
+			fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries),
 		},
 		{
 			nil,
-			fmt.Errorf("v is not a pointer to a struct"),
+			fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries),
 		},
 		{
 			map[string]string{},
-			fmt.Errorf("v is not a pointer to a struct"),
+			fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries),
 		},
 		{
 			nilPtr,
-			fmt.Errorf("v is nil"),
+			fmt.Errorf("%w: v is nil", ErrCannotLoadQueries),
 		},
 		{
 			intPtr,
-			fmt.Errorf("v is not a pointer to a struct"),
+			fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries),
 		},
 	}
 	for i, testCase := range testCases {
@@ -344,7 +356,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}
 	invalidCatQuery := InvalidCatQuery{}
 	err := loadQueriesIntoStruct(CatTestQueries, &invalidCatQuery)
-	wantedErr := fmt.Errorf("field %s cannot be changed or is not a string", "CreateCatTable")
+	wantedErr := fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, "CreateCatTable")
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
 	}
@@ -354,7 +366,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}
 	missingCatQueries := MissingCatQueries{}
 	err = loadQueriesIntoStruct(CatTestQueries, &missingCatQueries)
-	wantedErr = fmt.Errorf("could not to find query %s", "DeleteCatById")
+	wantedErr = fmt.Errorf("%w: could not find query %s", ErrCannotLoadQueries, "DeleteCatById")
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
 	}
@@ -409,7 +421,7 @@ func TestLoadFromString(t *testing.T) {
 	-- query: invalid-name
 	`
 	_, err := LoadFromString[struct{}](sql)
-	want := fmt.Errorf("invalid query name: invalid-name")
+	want := fmt.Errorf("%w: invalid query name invalid-name", ErrCannotLoadQueries)
 	if fmt.Sprint(err) != fmt.Sprint(want) {
 		t.Fatalf("got %s, want %s", err, want)
 	}
@@ -538,24 +550,28 @@ func TestLoadFromDir(t *testing.T) {
 	if err == nil {
 		t.Fatalf("dir testdata/i-dont-exist must not exists so this test can fail")
 	}
-	// Test that the function fails when it can not read some .sql file
-	unreadableFilename := "testdata/test-load-from-dir/unreadable-file.sql"
-	unreadableFile, err := os.Create(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to create %s: %s", unreadableFilename, err)
-	}
-	defer unreadableFile.Close()
-	err = os.Chmod(unreadableFilename, 0222)
-	if err != nil {
-		t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
-	}
-	_, err = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
-	if err == nil {
-		t.Fatal("error is nil")
-	}
-	err = os.Remove(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+
+	// Permission-based tests do not work on Windows
+	if runtime.GOOS != "windows" {
+		// Test that the function fails when it can not read some .sql file
+		unreadableFilename := "testdata/test-load-from-dir/unreadable-file.sql"
+		unreadableFile, err := os.Create(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+		}
+		defer unreadableFile.Close()
+		err = os.Chmod(unreadableFilename, 0222)
+		if err != nil {
+			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+		}
+		_, err = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
+		if err == nil {
+			t.Fatal("error is nil")
+		}
+		err = os.Remove(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+		}
 	}
 	// Test that the function succeeds when using the happy path
 	queries, err := LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
@@ -619,25 +635,28 @@ func TestLoadFromFS(t *testing.T) {
 	if err == nil {
 		t.Fatalf("dir testdata/i-dont-exist must not exists so this test can fail")
 	}
-	// Test that the function fails when it can not read some .sql file
-	unreadableFilename := "testdata/test-load-from-fs/unreadable-file.sql"
-	unreadableFile, err := os.Create(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to create %s: %s", unreadableFilename, err)
-	}
-	defer unreadableFile.Close()
-	err = os.Chmod(unreadableFilename, 0222)
-	if err != nil {
-		t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
-	}
-	fsys = os.DirFS("testdata/test-load-from-fs")
-	_, err = LoadFromFS[RandomQuery](fsys)
-	if err == nil {
-		t.Fatal("error is nil")
-	}
-	err = os.Remove(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+	// Permission-based tests do not work on Windows
+	if runtime.GOOS != "windows" {
+		// Test that the function fails when it can not read some .sql file
+		unreadableFilename := "testdata/test-load-from-fs/unreadable-file.sql"
+		unreadableFile, err := os.Create(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+		}
+		defer unreadableFile.Close()
+		err = os.Chmod(unreadableFilename, 0222)
+		if err != nil {
+			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+		}
+		fsys = os.DirFS("testdata/test-load-from-fs")
+		_, err = LoadFromFS[RandomQuery](fsys)
+		if err == nil {
+			t.Fatal("error is nil")
+		}
+		err = os.Remove(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+		}
 	}
 	// Test that the function succeeds when using the happy path
 	fsys = os.DirFS("testdata/test-load-from-fs")

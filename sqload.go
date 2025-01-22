@@ -4,6 +4,7 @@
 // Its usage is very straightforward; let's suppose you have the following SQL file:
 //
 // File queries.sql:
+//
 //	-- query: FindUserById
 //	-- Finds a user by its id.
 //	SELECT first_name,
@@ -22,9 +23,11 @@
 //	-- Deletes a user by its id.
 //	DELETE FROM user
 //	      WHERE id = :id;
+//
 // You could load the SQL code of those queries into strings using the following:
 //
 // File main.go:
+//
 //	package main
 //
 //	import (
@@ -48,14 +51,19 @@
 //		fmt.Printf("- UpdateFirstNameById\n%s\n\n", Q.UpdateFirstNameById)
 //		fmt.Printf("- DeleteUserById\n%s\n\n", Q.DeleteUserById)
 //	}
+//
 // The module maps the fields of your struct and the queries from the SQL file using the
 // query tag (in the struct):
+//
 //	`query:"NameOfYourQuery"`
+//
 // And the query comment (in the SQL code):
+//
 //	-- query: NameOfYourQuery
 package sqload
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -68,6 +76,8 @@ import (
 // Struct is an empty interface used to give the developer a hint that the type must be
 // a struct.
 type Struct interface{}
+
+var ErrCannotLoadQueries = errors.New("cannot load queries")
 
 var queryNamePattern = regexp.MustCompile(`[ \t\n\r\f\v]*-- query:`)
 var validQueryNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
@@ -131,7 +141,7 @@ func ExtractQueryMap(sql string) (map[string]string, error) {
 		lines := newLinePattern.Split(strings.TrimSpace(q), -1)
 		queryName := lines[0]
 		if !validQueryNamePattern.MatchString(queryName) {
-			return nil, fmt.Errorf("invalid query name: %s", queryName)
+			return nil, fmt.Errorf("%w: invalid query name %s", ErrCannotLoadQueries, queryName)
 		}
 		querySql := extractSql(lines[1:])
 		queries[queryName] = querySql
@@ -143,7 +153,7 @@ func findFilesWithExt(fsys fs.FS, ext string) ([]string, error) {
 	files := []string{}
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: %w", ErrCannotLoadQueries, err)
 		}
 		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ext {
 			files = append(files, path)
@@ -159,14 +169,14 @@ func findFilesWithExt(fsys fs.FS, ext string) ([]string, error) {
 func loadQueriesIntoStruct(queries map[string]string, v Struct) error {
 	value := reflect.ValueOf(v)
 	if value.Kind() != reflect.Pointer {
-		return fmt.Errorf("v is not a pointer to a struct")
+		return fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries)
 	}
 	if value.IsNil() {
-		return fmt.Errorf("v is nil")
+		return fmt.Errorf("%w: v is nil", ErrCannotLoadQueries)
 	}
 	elem := value.Elem()
 	if elem.Kind() != reflect.Struct {
-		return fmt.Errorf("v is not a pointer to a struct")
+		return fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries)
 	}
 	queriesAndFields := map[string]int{}
 	for i := 0; i < elem.NumField(); i++ {
@@ -178,11 +188,11 @@ func loadQueriesIntoStruct(queries map[string]string, v Struct) error {
 	for queryName, fieldIndex := range queriesAndFields {
 		sql, ok := queries[queryName]
 		if !ok {
-			return fmt.Errorf("could not to find query %s", queryName)
+			return fmt.Errorf("%w: could not find query %s", ErrCannotLoadQueries, queryName)
 		}
 		field := elem.Field(fieldIndex)
 		if !field.CanSet() || field.Kind() != reflect.String {
-			return fmt.Errorf("field %s cannot be changed or is not a string", elem.Type().Field(fieldIndex).Name)
+			return fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, elem.Type().Field(fieldIndex).Name)
 		}
 		field.SetString(sql)
 	}
@@ -194,7 +204,7 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 	for _, filename := range filenames {
 		data, err := fs.ReadFile(fsys, filename)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("%w: %w", ErrCannotLoadQueries, err)
 		}
 		lines = append(lines, string(data))
 	}
@@ -207,6 +217,7 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 //
 // If some query has an invalid name in the string or is not found in the string, it
 // will return a nil pointer and an error.
+//
 //	package main
 //
 //	import (
@@ -281,6 +292,7 @@ func MustLoadFromString[V Struct](s string) *V {
 // error.
 //
 // File queries.sql:
+//
 //	-- query: FindUserById
 //	SELECT first_name,
 //	       last_name,
@@ -299,6 +311,7 @@ func MustLoadFromString[V Struct](s string) *V {
 //	      WHERE id = :id;
 //
 // File main.go:
+//
 //	package main
 //
 //	import (
@@ -325,7 +338,7 @@ func MustLoadFromString[V Struct](s string) *V {
 func LoadFromFile[V Struct](filename string) (*V, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrCannotLoadQueries, err)
 	}
 	return LoadFromString[V](string(data))
 }
@@ -354,19 +367,26 @@ func MustLoadFromFile[V Struct](filename string) *V {
 // If any .sql file can not be read, it will return a nil pointer and an error.
 //
 // Project directory:
+//
 //	.
 //	├── go.mod
 //	├── main.go
 //	└── sql
 //	    ├── cats.sql
 //	    └── users.sql
+//
 // File sql/cats.sql:
+//
 //	-- query: CreatePsychoCat
 //	INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
+//
 // File sql/users.sql:
+//
 //	-- query: DeleteUserById
 //	DELETE FROM user WHERE id = :id;
+//
 // File main.go:
+//
 //	package main
 //
 //	import (
@@ -425,19 +445,26 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 // If any .sql file can not be read, it will return a nil pointer and an error.
 //
 // Project directory:
+//
 //	.
 //	├── go.mod
 //	├── main.go
 //	└── sql
 //	    ├── cats.sql
 //	    └── users.sql
+//
 // File sql/cats.sql:
+//
 //	-- query: CreatePsychoCat
 //	INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
+//
 // File sql/users.sql:
+//
 //	-- query: DeleteUserById
 //	DELETE FROM user WHERE id = :id;
+//
 // File main.go:
+//
 //	package main
 //
 //	import (
