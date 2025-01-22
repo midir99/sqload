@@ -4,6 +4,7 @@
 // Its usage is very straightforward; let's suppose you have the following SQL file:
 //
 // File queries.sql:
+//
 //	-- query: FindUserById
 //	-- Finds a user by its id.
 //	SELECT first_name,
@@ -22,9 +23,11 @@
 //	-- Deletes a user by its id.
 //	DELETE FROM user
 //	      WHERE id = :id;
+//
 // You could load the SQL code of those queries into strings using the following:
 //
 // File main.go:
+//
 //	package main
 //
 //	import (
@@ -48,10 +51,14 @@
 //		fmt.Printf("- UpdateFirstNameById\n%s\n\n", Q.UpdateFirstNameById)
 //		fmt.Printf("- DeleteUserById\n%s\n\n", Q.DeleteUserById)
 //	}
+//
 // The module maps the fields of your struct and the queries from the SQL file using the
 // query tag (in the struct):
+//
 //	`query:"NameOfYourQuery"`
+//
 // And the query comment (in the SQL code):
+//
 //	-- query: NameOfYourQuery
 package sqload
 
@@ -207,6 +214,7 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 //
 // If some query has an invalid name in the string or is not found in the string, it
 // will return a nil pointer and an error.
+//
 //	package main
 //
 //	import (
@@ -281,6 +289,7 @@ func MustLoadFromString[V Struct](s string) *V {
 // error.
 //
 // File queries.sql:
+//
 //	-- query: FindUserById
 //	SELECT first_name,
 //	       last_name,
@@ -299,6 +308,7 @@ func MustLoadFromString[V Struct](s string) *V {
 //	      WHERE id = :id;
 //
 // File main.go:
+//
 //	package main
 //
 //	import (
@@ -354,19 +364,26 @@ func MustLoadFromFile[V Struct](filename string) *V {
 // If any .sql file can not be read, it will return a nil pointer and an error.
 //
 // Project directory:
+//
 //	.
 //	├── go.mod
 //	├── main.go
 //	└── sql
 //	    ├── cats.sql
 //	    └── users.sql
+//
 // File sql/cats.sql:
+//
 //	-- query: CreatePsychoCat
 //	INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
+//
 // File sql/users.sql:
+//
 //	-- query: DeleteUserById
 //	DELETE FROM user WHERE id = :id;
+//
 // File main.go:
+//
 //	package main
 //
 //	import (
@@ -425,19 +442,26 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 // If any .sql file can not be read, it will return a nil pointer and an error.
 //
 // Project directory:
+//
 //	.
 //	├── go.mod
 //	├── main.go
 //	└── sql
 //	    ├── cats.sql
 //	    └── users.sql
+//
 // File sql/cats.sql:
+//
 //	-- query: CreatePsychoCat
 //	INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
+//
 // File sql/users.sql:
+//
 //	-- query: DeleteUserById
 //	DELETE FROM user WHERE id = :id;
+//
 // File main.go:
+//
 //	package main
 //
 //	import (
