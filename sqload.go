@@ -321,7 +321,7 @@ func MustLoadFromString[V Struct](s string) *V {
 // If some query has an invalid name in the string or is not found in the string, it
 // will return a nil pointer and an error.
 //
-// If the file can not be read or does not exist, it will return a nil pointer and an
+// If the file cannot be read or does not exist, it will return a nil pointer and an
 // error.
 //
 // File queries.sql:
@@ -391,13 +391,16 @@ func MustLoadFromFile[V Struct](filename string) *V {
 // (recursively) and returns a pointer to a struct. Each struct field will contain the
 // SQL query code it was tagged with.
 //
+// If a .sql file in the directory does not contain any tagged queries, the entire file
+// will be assumed to be a single query, and will use the filename as its tag.
+//
 // If some query has an invalid name in the string or is not found in the string, it
 // will return a nil pointer and an error.
 //
-// If the directory can not be read or does not exist, it will return a nil pointer and
+// If the directory cannot be read or does not exist, it will return a nil pointer and
 // an error.
 //
-// If any .sql file can not be read, it will return a nil pointer and an error.
+// If any .sql file cannot be read, it will return a nil pointer and an error.
 //
 // Project directory:
 //
@@ -405,8 +408,13 @@ func MustLoadFromFile[V Struct](filename string) *V {
 //	├── go.mod
 //	├── main.go
 //	└── sql
+//	    ├── cars.sql
 //	    ├── cats.sql
 //	    └── users.sql
+//
+// File sql/cars.sql:
+//
+//	SELECT * FROM cars;
 //
 // File sql/cats.sql:
 //
@@ -433,6 +441,7 @@ func MustLoadFromFile[V Struct](filename string) *V {
 //		q, err := sqload.LoadFromDir[struct {
 //			CreatePsychoCat string `query:"CreatePsychoCat"`
 //			DeleteUserById  string `query:"DeleteUserById"`
+//			ListsAllCars    string `query:"sql/cars.sql"`
 //		}]("sql")
 //		if err != nil {
 //			fmt.Printf("Unable to load SQL queries: %s\n", err)
@@ -440,6 +449,7 @@ func MustLoadFromFile[V Struct](filename string) *V {
 //		}
 //		fmt.Printf("- CreatePsychoCat\n%s\n\n", q.CreatePsychoCat)
 //		fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
+//		fmt.Printf("- ListAllCars\n%s\n\n", q.ListAllCars)
 //	}
 func LoadFromDir[V Struct](dirname string) (*V, error) {
 	fsys := os.DirFS(dirname)
@@ -461,13 +471,16 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 // (recursively) and returns a pointer to a struct. Each struct field will contain the
 // SQL query code it was tagged with.
 //
+// If a .sql file in the file system does not contain any tagged queries, the entire file
+// will be assumed to be a single query, and will use the filename as its tag.
+//
 // If some query has an invalid name in the string or is not found in the string, it
 // will return a nil pointer and an error.
 //
-// If the fsys can not be read or does not exist, it will return a nil pointer and
+// If the fsys cannot be read or does not exist, it will return a nil pointer and
 // an error.
 //
-// If any .sql file can not be read, it will return a nil pointer and an error.
+// If any .sql file cannot be read, it will return a nil pointer and an error.
 //
 // Project directory:
 //
@@ -475,8 +488,13 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 //	├── go.mod
 //	├── main.go
 //	└── sql
+//	    ├── cars.sql
 //	    ├── cats.sql
 //	    └── users.sql
+//
+// File sql/cars.sql:
+//
+//	SELECT * FROM cars;
 //
 // File sql/cats.sql:
 //
@@ -507,6 +525,7 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 //		q, err := sqload.LoadFromFS[struct {
 //			CreatePsychoCat string `query:"CreatePsychoCat"`
 //			DeleteUserById  string `query:"DeleteUserById"`
+//			ListsAllCars    string `query:"sql/cars.sql"`
 //		}](fsys)
 //		if err != nil {
 //			fmt.Printf("Unable to load SQL queries: %s\n", err)
@@ -514,6 +533,7 @@ func MustLoadFromDir[V Struct](dirname string) *V {
 //		}
 //		fmt.Printf("- CreatePsychoCat\n%s\n\n", q.CreatePsychoCat)
 //		fmt.Printf("- DeleteUserById\n%s\n\n", q.DeleteUserById)
+//		fmt.Printf("- ListAllCars\n%s\n\n", q.ListAllCars)
 //	}
 func LoadFromFS[V Struct](fsys fs.FS) (*V, error) {
 	files, err := findFilesWithExt(fsys, ".sql")
