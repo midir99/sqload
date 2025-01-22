@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -549,24 +550,28 @@ func TestLoadFromDir(t *testing.T) {
 	if err == nil {
 		t.Fatalf("dir testdata/i-dont-exist must not exists so this test can fail")
 	}
-	// Test that the function fails when it can not read some .sql file
-	unreadableFilename := "testdata/test-load-from-dir/unreadable-file.sql"
-	unreadableFile, err := os.Create(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to create %s: %s", unreadableFilename, err)
-	}
-	defer unreadableFile.Close()
-	err = os.Chmod(unreadableFilename, 0222)
-	if err != nil {
-		t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
-	}
-	_, err = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
-	if err == nil {
-		t.Fatal("error is nil")
-	}
-	err = os.Remove(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+
+	// Permission-based tests do not work on Windows
+	if runtime.GOOS != "windows" {
+		// Test that the function fails when it can not read some .sql file
+		unreadableFilename := "testdata/test-load-from-dir/unreadable-file.sql"
+		unreadableFile, err := os.Create(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+		}
+		defer unreadableFile.Close()
+		err = os.Chmod(unreadableFilename, 0222)
+		if err != nil {
+			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+		}
+		_, err = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
+		if err == nil {
+			t.Fatal("error is nil")
+		}
+		err = os.Remove(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+		}
 	}
 	// Test that the function succeeds when using the happy path
 	queries, err := LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
@@ -630,25 +635,28 @@ func TestLoadFromFS(t *testing.T) {
 	if err == nil {
 		t.Fatalf("dir testdata/i-dont-exist must not exists so this test can fail")
 	}
-	// Test that the function fails when it can not read some .sql file
-	unreadableFilename := "testdata/test-load-from-fs/unreadable-file.sql"
-	unreadableFile, err := os.Create(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to create %s: %s", unreadableFilename, err)
-	}
-	defer unreadableFile.Close()
-	err = os.Chmod(unreadableFilename, 0222)
-	if err != nil {
-		t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
-	}
-	fsys = os.DirFS("testdata/test-load-from-fs")
-	_, err = LoadFromFS[RandomQuery](fsys)
-	if err == nil {
-		t.Fatal("error is nil")
-	}
-	err = os.Remove(unreadableFilename)
-	if err != nil {
-		t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+	// Permission-based tests do not work on Windows
+	if runtime.GOOS != "windows" {
+		// Test that the function fails when it can not read some .sql file
+		unreadableFilename := "testdata/test-load-from-fs/unreadable-file.sql"
+		unreadableFile, err := os.Create(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+		}
+		defer unreadableFile.Close()
+		err = os.Chmod(unreadableFilename, 0222)
+		if err != nil {
+			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+		}
+		fsys = os.DirFS("testdata/test-load-from-fs")
+		_, err = LoadFromFS[RandomQuery](fsys)
+		if err == nil {
+			t.Fatal("error is nil")
+		}
+		err = os.Remove(unreadableFilename)
+		if err != nil {
+			t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+		}
 	}
 	// Test that the function succeeds when using the happy path
 	fsys = os.DirFS("testdata/test-load-from-fs")
