@@ -171,7 +171,7 @@ func findFilesWithExt(fsys fs.FS, ext string) ([]string, error) {
 	return files, nil
 }
 
-func loadQueriesIntoStruct(queries map[string]string, v Struct) error {
+func loadQueriesIntoStruct(queries map[string]string, v Struct, allowPartial bool) error {
 	value := reflect.ValueOf(v)
 	if value.Kind() != reflect.Pointer {
 		return fmt.Errorf("%w: v is not a pointer to a struct", ErrCannotLoadQueries)
@@ -192,15 +192,43 @@ func loadQueriesIntoStruct(queries map[string]string, v Struct) error {
 	}
 	for queryName, fieldIndex := range queriesAndFields {
 		sql, ok := queries[queryName]
-		if !ok {
+		if !ok && !allowPartial {
 			return fmt.Errorf("%w: could not find query %s", ErrCannotLoadQueries, queryName)
 		}
 		field := elem.Field(fieldIndex)
 		if !field.CanSet() || field.Kind() != reflect.String {
 			return fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, elem.Type().Field(fieldIndex).Name)
 		}
-		field.SetString(sql)
+		if ok {
+			if field.String() != "" {
+				return fmt.Errorf("duplicate query for field %s", elem.Type().Field(fieldIndex).Name)
+			}
+			field.SetString(sql)
+		}
 	}
+	return nil
+}
+
+func ensureAllQueriesAreLoaded(v Struct) error {
+	value := reflect.ValueOf(v)
+	if value.Kind() != reflect.Pointer {
+		return fmt.Errorf("v is not a pointer to a struct")
+	}
+	if value.IsNil() {
+		return fmt.Errorf("v is nil")
+	}
+	elem := value.Elem()
+	if elem.Kind() != reflect.Struct {
+		return fmt.Errorf("v is not a pointer to a struct")
+	}
+
+	for i := 0; i < elem.NumField(); i++ {
+		queryTag := elem.Type().Field(i).Tag.Get("query")
+		if queryTag != "" && elem.Field(i).String() == "" {
+			return fmt.Errorf("missing query for field %s", elem.Type().Field(i).Name)
+		}
+	}
+
 	return nil
 }
 
@@ -269,7 +297,7 @@ func LoadFromString[V Struct](s string) (*V, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = loadQueriesIntoStruct(queries, &v)
+	err = loadQueriesIntoStruct(queries, &v, false)
 	if err != nil {
 		return nil, err
 	}
@@ -493,18 +521,34 @@ func LoadFromFS[V Struct](fsys fs.FS) (*V, error) {
 		return nil, err
 	}
 
+	var v V
 	for _, filename := range files {
 		data, err := fs.ReadFile(fsys, filename)
 		if err != nil {
-			return "", err
+			// TODO: Wrap once PR#12 is merged
+			return nil, err
+		}
+
+		fileQueries, err := ExtractQueryMap(string(data))
+		if err != nil {
+			// TODO: Wrap once PR#12 is merged
+			return nil, err
+		}
+
+		// If the file does not have "query" tags,
+		// use the entire file with it's name as the tag
+		if len(fileQueries) == 0 {
+			lines := newLinePattern.Split(strings.TrimSpace(string(data)), -1)
+			fileQueries[filename] = extractSql(lines)
+		}
+
+		err = loadQueriesIntoStruct(fileQueries, &v, true)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	sql, err := cat(fsys, files)
-	if err != nil {
-		return nil, err
-	}
-	return LoadFromString[V](sql)
+	return &v, ensureAllQueriesAreLoaded(&v)
 }
 
 // MustLoadFromFS is like LoadFromFS but panics if any error occurs. It simplifies the
