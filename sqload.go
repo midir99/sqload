@@ -153,7 +153,7 @@ func findFilesWithExt(fsys fs.FS, ext string) ([]string, error) {
 	files := []string{}
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrCannotLoadQueries, err)
+			return fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
 		}
 		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ext {
 			files = append(files, path)
@@ -204,7 +204,7 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 	for _, filename := range filenames {
 		data, err := fs.ReadFile(fsys, filename)
 		if err != nil {
-			return "", fmt.Errorf("%w: %w", ErrCannotLoadQueries, err)
+			return "", fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
 		}
 		lines = append(lines, string(data))
 	}
@@ -338,7 +338,7 @@ func MustLoadFromString[V Struct](s string) *V {
 func LoadFromFile[V Struct](filename string) (*V, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrCannotLoadQueries, err)
+		return nil, fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
 	}
 	return LoadFromString[V](string(data))
 }
