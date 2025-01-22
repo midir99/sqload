@@ -22,3 +22,6 @@ go.work
 
 # Visual Studio Code
 .vscode/
+
+# Temporary test data
+testdata/*/unreadable-file.sql
