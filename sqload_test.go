@@ -343,7 +343,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d (v=%v)", i, testCase.v), func(t *testing.T) {
-			err := loadQueriesIntoStruct(map[string]string{}, testCase.v)
+			err := loadQueriesIntoStruct(map[string]string{}, testCase.v, false)
 			if fmt.Sprint(err) != fmt.Sprint(testCase.err) {
 				t.Errorf("got %s, want %s", err, testCase.err)
 				return
@@ -355,7 +355,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		CreateCatTable int `query:"CreateCatTable"`
 	}
 	invalidCatQuery := InvalidCatQuery{}
-	err := loadQueriesIntoStruct(CatTestQueries, &invalidCatQuery)
+	err := loadQueriesIntoStruct(CatTestQueries, &invalidCatQuery, false)
 	wantedErr := fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, "CreateCatTable")
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
@@ -365,7 +365,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		DeleteCatById int `query:"DeleteCatById"`
 	}
 	missingCatQueries := MissingCatQueries{}
-	err = loadQueriesIntoStruct(CatTestQueries, &missingCatQueries)
+	err = loadQueriesIntoStruct(CatTestQueries, &missingCatQueries, false)
 	wantedErr = fmt.Errorf("%w: could not find query %s", ErrCannotLoadQueries, "DeleteCatById")
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
@@ -378,7 +378,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		UpdateColorById string `query:"UpdateColorById"`
 	}
 	catQuery := CatQuery{}
-	err = loadQueriesIntoStruct(CatTestQueries, &catQuery)
+	err = loadQueriesIntoStruct(CatTestQueries, &catQuery, false)
 	if err != nil {
 		t.Fatalf("err must be nil, got %s", err)
 	}
