@@ -415,15 +415,7 @@ func MustLoadFromFile[V Struct](filename string) *V {
 //	}
 func LoadFromDir[V Struct](dirname string) (*V, error) {
 	fsys := os.DirFS(dirname)
-	files, err := findFilesWithExt(fsys, ".sql")
-	if err != nil {
-		return nil, err
-	}
-	sql, err := cat(fsys, files)
-	if err != nil {
-		return nil, err
-	}
-	return LoadFromString[V](sql)
+	return LoadFromFS[V](fsys)
 }
 
 // MustLoadFromDir is like LoadFromDir but panics if any error occurs. It simplifies the
@@ -500,6 +492,14 @@ func LoadFromFS[V Struct](fsys fs.FS) (*V, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	for _, filename := range files {
+		data, err := fs.ReadFile(fsys, filename)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	sql, err := cat(fsys, files)
 	if err != nil {
 		return nil, err
