@@ -200,9 +200,6 @@ func loadQueriesIntoStruct(queries map[string]string, v Struct, allowPartial boo
 			return fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, elem.Type().Field(fieldIndex).Name)
 		}
 		if ok {
-			if field.String() != "" {
-				return fmt.Errorf("duplicate query for field %s", elem.Type().Field(fieldIndex).Name)
-			}
 			field.SetString(sql)
 		}
 	}
