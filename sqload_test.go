@@ -544,6 +544,7 @@ func TestLoadFromDir(t *testing.T) {
 		UpdateFirstNameById string `query:"UpdateFirstNameById"`
 		DeleteUserById      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
+		ListAllCars         string `query:"big-single-query.sql"`
 	}
 	// Test that the function fails when the directory does not exist
 	_, err := LoadFromDir[RandomQuery]("testdata/i-dont-exist")
@@ -628,6 +629,7 @@ func TestLoadFromFS(t *testing.T) {
 		UpdateFirstNameById string `query:"UpdateFirstNameById"`
 		DeleteUserById      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
+		ListAllCars         string `query:"big-single-query.sql"`
 	}
 	// Test that the function fails when the directory does not exist
 	fsys := os.DirFS("testdata/i-dont-exist")
