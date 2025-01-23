@@ -60,6 +60,11 @@
 // And the query comment (in the SQL code):
 //
 //	-- query: NameOfYourQuery
+//
+// To handle errors that are specific to this package you can use:
+//
+//	`if errors.Is(err, sqload.ErrCannotLoadQueries) { ... }`
+
 package sqload
 
 import (
