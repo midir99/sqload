@@ -542,14 +542,12 @@ func LoadFromFS[V Struct](fsys fs.FS) (*V, error) {
 	for _, filename := range files {
 		data, err := fs.ReadFile(fsys, filename)
 		if err != nil {
-			// TODO: Wrap once PR#12 is merged
-			return nil, err
+			return nil, fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
 		}
 
 		fileQueries, err := ExtractQueryMap(string(data))
 		if err != nil {
-			// TODO: Wrap once PR#12 is merged
-			return nil, err
+			return nil, fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
 		}
 
 		// If the file does not have "query" tags,
