@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/midir99/sqload.svg)](https://pkg.go.dev/github.com/midir99/sqload)
 [![Go Report Card](https://goreportcard.com/badge/github.com/midir99/sqload)](https://goreportcard.com/report/github.com/midir99/sqload)
-[![Build Status](https://api.travis-ci.com/midir99/sqload.svg)](https://travis-ci.com/midir99/sqload)
+[![CI](https://github.com/midir99/sqload/actions/workflows/ci.yml/badge.svg)](https://github.com/midir99/sqload/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/midir99/sqload/badge.svg?branch=main)](https://coveralls.io/github/midir99/sqload?branch=main)
 
 Personally, I don't like writing SQL code inside the Go source files, so I made this simple and thoroughly tested module to load SQL queries from files.
