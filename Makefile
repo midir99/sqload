@@ -2,6 +2,10 @@ clean:
 	go clean
 
 
+fmt:
+	golangci-lint fmt
+
+
 test:
 	go test ./...
 
@@ -19,4 +23,4 @@ vet:
 
 
 lint:
-	golangci-lint run --enable-all
+	golangci-lint run

@@ -64,7 +64,7 @@ SELECT r.last_name,
 `),
 }
 
-func TestExtractSql(t *testing.T) {
+func TestExtractSQL(t *testing.T) {
 	testCases := []struct {
 		lines     []string
 		wantedSql string
@@ -109,7 +109,7 @@ func TestExtractSql(t *testing.T) {
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			sql := extractSql(testCase.lines)
+			sql := extractSQL(testCase.lines)
 			if sql != testCase.wantedSql {
 				t.Errorf("got %s, want %s", sql, testCase.wantedSql)
 				return
