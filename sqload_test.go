@@ -63,6 +63,9 @@ SELECT r.last_name,
          WHERE YEAR(championship_date) > '2008'
            AND c.confirmed = 'Y');
 `),
+}
+
+var CommentedQueries = map[string]string{
 	"FindBestBike": strings.TrimSpace(`
 -- Use this query to get the best Suzuki bike
 SELECT name, description, cc -- <- We select the name, description and displacement.
@@ -77,6 +80,42 @@ AND name = '-- Boulevard C50 --' -- thanks NCRonB for reporting this issue :)
 /* comment */
 -- I can bet that there's people that writes comments like this.; -- God loves you.
 ;
+`),
+	"FindGreenGrass": strings.TrimSpace(`
+SELECT
+	id, grass
+FROM
+	garden
+WHERE
+	id != 3 -- this is a valid comment
+	AND grass = 'Green';
+`),
+	"FindBook": strings.TrimSpace(`
+SELECT
+	title
+FROM
+	book
+WHERE
+	title = '-- Interesting --'; -- This is a comment, but '-- Interesting --' is not.
+	OR key = '
+	-- not a comment
+	';
+`),
+	"UglyButValidQuery": strings.TrimSpace(`
+SELECT
+	id
+FROM
+	table
+WHERE
+	/* multi-line
+	comment */
+	a = '/* not a comment'
+	OR b = '*/ not the end of a comment'
+	OR c = '
+	/* not a comment */
+	'
+	/* AND d = 'inside a comment
+	'*/; -- This is a terribly ugly, but valid query.
 `),
 }
 
@@ -134,6 +173,7 @@ func TestExtractSQL(t *testing.T) {
 	}
 }
 
+//gocognit:ignore
 func TestExtractQueryMap(t *testing.T) {
 	type Want struct {
 		queries map[string]string
@@ -469,15 +509,69 @@ AND name = '-- Boulevard C50 --' -- thanks NCRonB for reporting this issue :)
 /* comment */
 -- I can bet that there's people that writes comments like this.; -- God loves you.
 ;
+
+-- query: FindBestBike
+-- Use this query to get the best Suzuki bike
+SELECT name, description, cc -- <- We select the name, description and displacement.
+/* The table we'll use is
+   Suzuki, because it has the best
+   bikes in Mexico
+*/
+FROM Suzuki
+/* We filter bikes, we do not want cars */ WHERE type = 'bike'
+AND name = '-- Boulevard C50 --' -- thanks NCRonB for reporting this issue :)
+-- finally we close the query with a good
+/* comment */
+-- I can bet that there's people that writes comments like this.; -- God loves you.
+;
+
+-- query: FindGreenGrass
+SELECT
+	id, grass
+FROM
+	garden
+WHERE
+	id != 3 -- this is a valid comment
+	AND grass = 'Green';
+
+-- query: FindBook
+SELECT
+	title
+FROM
+	book
+WHERE
+	title = '-- Interesting --'; -- This is a comment, but '-- Interesting --' is not.
+	OR key = '
+	-- not a comment
+	';
+
+-- query: UglyButValidQuery
+SELECT
+	id
+FROM
+	table
+WHERE
+	/* multi-line
+	comment */
+	a = '/* not a comment'
+	OR b = '*/ not the end of a comment'
+	OR c = '
+	/* not a comment */
+	'
+	/* AND d = 'inside a comment
+	'*/; -- This is a terribly ugly, but valid query.
 `)
 	_, err = LoadFromString[int](sql)
 	if err == nil {
 		t.Fatal("err is nil")
 	}
 	q, err := LoadFromString[struct {
-		CreateCatTable  string `query:"CreateCatTable"`
-		CreatePsychoCat string `query:"CreatePsychoCat"`
-		FindBestBike    string `query:"FindBestBike"`
+		CreateCatTable    string `query:"CreateCatTable"`
+		CreatePsychoCat   string `query:"CreatePsychoCat"`
+		FindBestBike      string `query:"FindBestBike"`
+		FindGreenGrass    string `query:"FindGreenGrass"`
+		FindBook          string `query:"FindBook"`
+		UglyButValidQuery string `query:"UglyButValidQuery"`
 	}](sql)
 	if err != nil {
 		t.Fatalf("err must be nil, got %s", err)
@@ -488,8 +582,17 @@ AND name = '-- Boulevard C50 --' -- thanks NCRonB for reporting this issue :)
 	if q.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
 		t.Errorf("got %s, want %s", q.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
 	}
-	if q.FindBestBike != RiderTestQueries["FindBestBike"] {
-		t.Errorf("got %s, want %s", q.FindBestBike, RiderTestQueries["FindBestBike"])
+	if q.FindBestBike != CommentedQueries["FindBestBike"] {
+		t.Errorf("got %s, want %s", q.FindBestBike, CommentedQueries["FindBestBike"])
+	}
+	if q.FindGreenGrass != CommentedQueries["FindGreenGrass"] {
+		t.Errorf("got %s, want %s", q.FindGreenGrass, CommentedQueries["FindGreenGrass"])
+	}
+	if q.FindBook != CommentedQueries["FindBook"] {
+		t.Errorf("got %s, want %s", q.FindBook, CommentedQueries["FindBook"])
+	}
+	if q.UglyButValidQuery != CommentedQueries["UglyButValidQuery"] {
+		t.Errorf("got %s, want %s", q.UglyButValidQuery, CommentedQueries["UglyButValidQuery"])
 	}
 }
 
