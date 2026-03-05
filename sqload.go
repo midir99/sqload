@@ -64,7 +64,6 @@
 // To handle errors that are specific to this package you can use:
 //
 //	`if errors.Is(err, sqload.ErrCannotLoadQueries) { ... }`
-
 package sqload
 
 import (
@@ -80,23 +79,16 @@ import (
 
 // Struct is an empty interface used to give the developer a hint that the type must be
 // a struct.
-type Struct interface{}
+type Struct any
 
 var ErrCannotLoadQueries = errors.New("cannot load queries")
 
 var queryNamePattern = regexp.MustCompile(`[ \t\n\r\f\v]*-- query:`)
 var validQueryNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-var queryCommentPattern = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
 var newLinePattern = regexp.MustCompile("\r?\n")
 
-func extractSql(lines []string) string {
-	sqlLines := []string{}
-	for _, line := range lines {
-		if !queryCommentPattern.MatchString(line) {
-			sqlLines = append(sqlLines, line)
-		}
-	}
-	return strings.Join(sqlLines, "\n")
+func extractSQL(lines []string) string {
+	return strings.Join(lines, "\n")
 }
 
 // ExtractQueryMap extracts the SQL code from the string and returns a map containing the queries.
@@ -139,6 +131,7 @@ func extractSql(lines []string) string {
 func ExtractQueryMap(sql string) (map[string]string, error) {
 	queries := make(map[string]string)
 	rawQueries := queryNamePattern.Split(sql, -1)
+	// Skip the first element because is an empty string.
 	if len(rawQueries) <= 1 {
 		return queries, nil
 	}
@@ -148,8 +141,8 @@ func ExtractQueryMap(sql string) (map[string]string, error) {
 		if !validQueryNamePattern.MatchString(queryName) {
 			return nil, fmt.Errorf("%w: invalid query name %s", ErrCannotLoadQueries, queryName)
 		}
-		querySql := extractSql(lines[1:])
-		queries[queryName] = querySql
+		querySQL := extractSQL(lines[1:])
+		queries[queryName] = querySQL
 	}
 	return queries, nil
 }
@@ -158,7 +151,7 @@ func findFilesWithExt(fsys fs.FS, ext string) ([]string, error) {
 	files := []string{}
 	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
+			return fmt.Errorf("%w: %v", ErrCannotLoadQueries, err)
 		}
 		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ext {
 			files = append(files, path)
@@ -197,7 +190,11 @@ func loadQueriesIntoStruct(queries map[string]string, v Struct) error {
 		}
 		field := elem.Field(fieldIndex)
 		if !field.CanSet() || field.Kind() != reflect.String {
-			return fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, elem.Type().Field(fieldIndex).Name)
+			return fmt.Errorf(
+				"%w: field %s cannot be changed or is not a string",
+				ErrCannotLoadQueries,
+				elem.Type().Field(fieldIndex).Name,
+			)
 		}
 		field.SetString(sql)
 	}
@@ -209,7 +206,7 @@ func cat(fsys fs.FS, filenames []string) (string, error) {
 	for _, filename := range filenames {
 		data, err := fs.ReadFile(fsys, filename)
 		if err != nil {
-			return "", fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
+			return "", fmt.Errorf("%w: %v", ErrCannotLoadQueries, err)
 		}
 		lines = append(lines, string(data))
 	}
@@ -343,7 +340,7 @@ func MustLoadFromString[V Struct](s string) *V {
 func LoadFromFile[V Struct](filename string) (*V, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrCannotLoadQueries, err)
+		return nil, fmt.Errorf("%w: %v", ErrCannotLoadQueries, err)
 	}
 	return LoadFromString[V](string(data))
 }
