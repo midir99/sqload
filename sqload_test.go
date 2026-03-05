@@ -6,11 +6,12 @@ import (
 	"io/fs"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-var CatTestQueries map[string]string = map[string]string{
+var CatTestQueries = map[string]string{
 	"CreateCatTable": strings.TrimSpace(`
 CREATE TABLE Cat (
     id SERIAL,
@@ -19,7 +20,7 @@ CREATE TABLE Cat (
 
     PRIMARY KEY (id)
 );`),
-	"CreatePsychoCat": "INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');",
+	"CreatePsychoCat": "-- Run, run, run, run, run, run, run away, oh-oh-oh!\nINSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');",
 	"CreateNormalCat": "INSERT INTO Cat (name, color) VALUES (:name, :color);",
 	"UpdateColorById": strings.TrimSpace(`
 UPDATE Cat
@@ -28,7 +29,7 @@ UPDATE Cat
 `),
 }
 
-var UserTestQueries map[string]string = map[string]string{
+var UserTestQueries = map[string]string{
 	"FindUserById": strings.TrimSpace(`
 SELECT first_name,
        last_name,
@@ -48,7 +49,7 @@ DELETE FROM user
 `),
 }
 
-var RiderTestQueries map[string]string = map[string]string{
+var RiderTestQueries = map[string]string{
 	"FindRiders": strings.TrimSpace(`
 SELECT r.last_name,
        (SELECT MAX(YEAR(championship_date))
@@ -62,12 +63,27 @@ SELECT r.last_name,
          WHERE YEAR(championship_date) > '2008'
            AND c.confirmed = 'Y');
 `),
+	"FindBestBike": strings.TrimSpace(`
+-- Use this query to get the best Suzuki bike
+SELECT name, description, cc -- <- We select the name, description and displacement.
+/* The table we'll use is
+   Suzuki, because it has the best
+   bikes in Mexico
+*/
+FROM Suzuki
+/* We filter bikes, we do not want cars */ WHERE type = 'bike'
+AND name = '-- Boulevard C50 --' -- thanks NCRonB for reporting this issue :)
+-- finally we close the query with a good
+/* comment */
+-- I can bet that there's people that writes comments like this.; -- God loves you.
+;
+`),
 }
 
 func TestExtractSQL(t *testing.T) {
 	testCases := []struct {
 		lines     []string
-		wantedSql string
+		wantedSQL string
 	}{
 		{
 			[]string{
@@ -76,7 +92,7 @@ func TestExtractSQL(t *testing.T) {
 				"FROM user",
 				"WHERE username = 'neto';",
 			},
-			"SELECT *\nFROM user\nWHERE username = 'neto';",
+			"-- Find a user with the given username field\nSELECT *\nFROM user\nWHERE username = 'neto';",
 		},
 		{
 			[]string{
@@ -108,10 +124,10 @@ func TestExtractSQL(t *testing.T) {
 		},
 	}
 	for i, testCase := range testCases {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			sql := extractSQL(testCase.lines)
-			if sql != testCase.wantedSql {
-				t.Errorf("got %s, want %s", sql, testCase.wantedSql)
+			if sql != testCase.wantedSQL {
+				t.Errorf("got %s, want %s", sql, testCase.wantedSQL)
 				return
 			}
 		})
@@ -202,7 +218,7 @@ func TestExtractQueryMap(t *testing.T) {
 		},
 	}
 	for i, testCase := range testCases {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			queries, err := ExtractQueryMap(testCase.sql)
 			if err != nil {
 				if !errors.Is(err, ErrCannotLoadQueries) {
@@ -222,13 +238,13 @@ func TestExtractQueryMap(t *testing.T) {
 			if queriesLen != wantedLen {
 				t.Fatalf("got %v, want %v", testCase.want.queries, queries)
 			}
-			for queryName, querySql := range queries {
-				wantedSql, ok := testCase.want.queries[queryName]
+			for queryName, querySQL := range queries {
+				wantedSQL, ok := testCase.want.queries[queryName]
 				if !ok {
 					t.Fatalf("wanted map does not contain key %s", queryName)
 				}
-				if querySql != wantedSql {
-					t.Fatalf("got %s, want %s", querySql, wantedSql)
+				if querySQL != wantedSQL {
+					t.Fatalf("got %s, want %s", querySQL, wantedSQL)
 				}
 			}
 		})
@@ -284,7 +300,7 @@ func TestFindFilesWithExt(t *testing.T) {
 		},
 	}
 	for i, testCase := range testCases {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			sqlFiles, err := findFilesWithExt(testCase.fsys, testCase.ext)
 			if err != nil && fmt.Sprint(err) != fmt.Sprint(testCase.want.err) {
 				t.Fatalf("got %v, want %v", err, testCase.want.err)
@@ -294,8 +310,8 @@ func TestFindFilesWithExt(t *testing.T) {
 			if sqlFilesLen != wantedLen {
 				t.Fatalf("got %d, want %d", sqlFilesLen, wantedLen)
 			}
-			for i := 0; i < sqlFilesLen; i++ {
-				if sqlFiles[i] != testCase.want.files[i] {
+			for j := 0; j < sqlFilesLen; j++ {
+				if sqlFiles[j] != testCase.want.files[j] {
 					t.Fatalf("got %v, want %v", sqlFiles, testCase.want.files)
 				}
 			}
@@ -305,7 +321,7 @@ func TestFindFilesWithExt(t *testing.T) {
 
 func TestLoadQueriesIntoStruct(t *testing.T) {
 	// Create test cases to test that the function only accepts pointers to structs
-	var nilPtr *int = nil
+	var nilPtr *int
 	num := 1
 	intPtr := &num
 	testCases := []struct {
@@ -362,7 +378,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}
 	// Create a struct that has a query that the cat-queries.sql file do not
 	type MissingCatQueries struct {
-		DeleteCatById int `query:"DeleteCatById"`
+		DeleteCatByID int `query:"DeleteCatById"`
 	}
 	missingCatQueries := MissingCatQueries{}
 	err = loadQueriesIntoStruct(CatTestQueries, &missingCatQueries)
@@ -375,7 +391,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		CreateCatTable  string `query:"CreateCatTable"`
 		CreatePsychoCat string `query:"CreatePsychoCat"`
 		CreateNormalCat string `query:"CreateNormalCat"`
-		UpdateColorById string `query:"UpdateColorById"`
+		UpdateColorByID string `query:"UpdateColorById"`
 	}
 	catQuery := CatQuery{}
 	err = loadQueriesIntoStruct(CatTestQueries, &catQuery)
@@ -391,8 +407,8 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	if catQuery.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
 		t.Errorf("got %s, want %s", catQuery.CreateNormalCat, CatTestQueries["CreateNormalCat"])
 	}
-	if catQuery.UpdateColorById != CatTestQueries["UpdateColorById"] {
-		t.Errorf("got %s, want %s", catQuery.UpdateColorById, CatTestQueries["UpdateColorById"])
+	if catQuery.UpdateColorByID != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", catQuery.UpdateColorByID, CatTestQueries["UpdateColorById"])
 	}
 }
 
@@ -434,8 +450,26 @@ CREATE TABLE Cat (
 
     PRIMARY KEY (id)
 );
+
 -- query: CreatePsychoCat
-INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
+-- Run, run, run, run, run, run, run away, oh-oh-oh!
+INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');
+
+-- query: FindBestBike
+-- Use this query to get the best Suzuki bike
+SELECT name, description, cc -- <- We select the name, description and displacement.
+/* The table we'll use is
+   Suzuki, because it has the best
+   bikes in Mexico
+*/
+FROM Suzuki
+/* We filter bikes, we do not want cars */ WHERE type = 'bike'
+AND name = '-- Boulevard C50 --' -- thanks NCRonB for reporting this issue :)
+-- finally we close the query with a good
+/* comment */
+-- I can bet that there's people that writes comments like this.; -- God loves you.
+;
+`)
 	_, err = LoadFromString[int](sql)
 	if err == nil {
 		t.Fatal("err is nil")
@@ -443,6 +477,7 @@ INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
 	q, err := LoadFromString[struct {
 		CreateCatTable  string `query:"CreateCatTable"`
 		CreatePsychoCat string `query:"CreatePsychoCat"`
+		FindBestBike    string `query:"FindBestBike"`
 	}](sql)
 	if err != nil {
 		t.Fatalf("err must be nil, got %s", err)
@@ -452,6 +487,9 @@ INSERT INTO Cat (name, color) VALUES ('Puca', 'Orange');`)
 	}
 	if q.CreatePsychoCat != CatTestQueries["CreatePsychoCat"] {
 		t.Errorf("got %s, want %s", q.CreatePsychoCat, CatTestQueries["CreatePsychoCat"])
+	}
+	if q.FindBestBike != RiderTestQueries["FindBestBike"] {
+		t.Errorf("got %s, want %s", q.FindBestBike, RiderTestQueries["FindBestBike"])
 	}
 }
 
@@ -478,7 +516,7 @@ func TestFromFile(t *testing.T) {
 		CreateCatTable  string `query:"CreateCatTable"`
 		CreatePsychoCat string `query:"CreatePsychoCat"`
 		CreateNormalCat string `query:"CreateNormalCat"`
-		UpdateColorById string `query:"UpdateColorById"`
+		UpdateColorByID string `query:"UpdateColorById"`
 	}
 	_, err := LoadFromFile[CatQuery]("testdata/i-dont-exist.sql")
 	if err == nil {
@@ -498,8 +536,8 @@ func TestFromFile(t *testing.T) {
 	if catQuery.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
 		t.Errorf("got %s, want %s", catQuery.CreateNormalCat, CatTestQueries["CreateNormalCat"])
 	}
-	if catQuery.UpdateColorById != CatTestQueries["UpdateColorById"] {
-		t.Errorf("got %s, want %s", catQuery.UpdateColorById, CatTestQueries["UpdateColorById"])
+	if catQuery.UpdateColorByID != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", catQuery.UpdateColorByID, CatTestQueries["UpdateColorById"])
 	}
 	// test using CRLF line endings
 	catQuery, err = LoadFromFile[CatQuery]("testdata/cat-queries.crlf.sql")
@@ -515,8 +553,8 @@ func TestFromFile(t *testing.T) {
 	if catQuery.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
 		t.Errorf("got %s, want %s", catQuery.CreateNormalCat, CatTestQueries["CreateNormalCat"])
 	}
-	if catQuery.UpdateColorById != CatTestQueries["UpdateColorById"] {
-		t.Errorf("got %s, want %s", catQuery.UpdateColorById, CatTestQueries["UpdateColorById"])
+	if catQuery.UpdateColorByID != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", catQuery.UpdateColorByID, CatTestQueries["UpdateColorById"])
 	}
 }
 
@@ -539,10 +577,10 @@ func TestLoadFromDir(t *testing.T) {
 		CreateCatTable      string `query:"CreateCatTable"`
 		CreatePsychoCat     string `query:"CreatePsychoCat"`
 		CreateNormalCat     string `query:"CreateNormalCat"`
-		UpdateColorById     string `query:"UpdateColorById"`
-		FindUserById        string `query:"FindUserById"`
-		UpdateFirstNameById string `query:"UpdateFirstNameById"`
-		DeleteUserById      string `query:"DeleteUserById"`
+		UpdateColorByID     string `query:"UpdateColorById"`
+		FindUserByID        string `query:"FindUserById"`
+		UpdateFirstNameByID string `query:"UpdateFirstNameById"`
+		DeleteUserByID      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
 	}
 	// Test that the function fails when the directory does not exist
@@ -555,22 +593,22 @@ func TestLoadFromDir(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		// Test that the function fails when it can not read some .sql file
 		unreadableFilename := "testdata/test-load-from-dir/unreadable-file.sql"
-		unreadableFile, err := os.Create(unreadableFilename)
-		if err != nil {
-			t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+		unreadableFile, err2 := os.Create(unreadableFilename)
+		if err2 != nil {
+			t.Fatalf("unable to create %s: %s", unreadableFilename, err2)
 		}
 		defer unreadableFile.Close()
-		err = os.Chmod(unreadableFilename, 0222)
-		if err != nil {
-			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+		err2 = os.Chmod(unreadableFilename, 0222)
+		if err2 != nil {
+			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err2)
 		}
-		_, err = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
-		if err == nil {
+		_, err2 = LoadFromDir[RandomQuery]("testdata/test-load-from-dir")
+		if err2 == nil {
 			t.Fatal("error is nil")
 		}
-		err = os.Remove(unreadableFilename)
-		if err != nil {
-			t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+		err2 = os.Remove(unreadableFilename)
+		if err2 != nil {
+			t.Fatalf("unable to remove %s: %s", unreadableFilename, err2)
 		}
 	}
 	// Test that the function succeeds when using the happy path
@@ -587,17 +625,17 @@ func TestLoadFromDir(t *testing.T) {
 	if queries.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
 		t.Errorf("got %s, want %s", queries.CreateNormalCat, CatTestQueries["CreateNormalCat"])
 	}
-	if queries.UpdateColorById != CatTestQueries["UpdateColorById"] {
-		t.Errorf("got %s, want %s", queries.UpdateColorById, CatTestQueries["UpdateColorById"])
+	if queries.UpdateColorByID != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", queries.UpdateColorByID, CatTestQueries["UpdateColorById"])
 	}
-	if queries.FindUserById != UserTestQueries["FindUserById"] {
-		t.Errorf("got %s, want %s", queries.FindUserById, UserTestQueries["FindUserById"])
+	if queries.FindUserByID != UserTestQueries["FindUserById"] {
+		t.Errorf("got %s, want %s", queries.FindUserByID, UserTestQueries["FindUserById"])
 	}
-	if queries.UpdateFirstNameById != UserTestQueries["UpdateFirstNameById"] {
-		t.Errorf("got %s, want %s", queries.UpdateFirstNameById, UserTestQueries["UpdateFirstNameById"])
+	if queries.UpdateFirstNameByID != UserTestQueries["UpdateFirstNameById"] {
+		t.Errorf("got %s, want %s", queries.UpdateFirstNameByID, UserTestQueries["UpdateFirstNameById"])
 	}
-	if queries.DeleteUserById != UserTestQueries["DeleteUserById"] {
-		t.Errorf("got %s, want %s", queries.DeleteUserById, UserTestQueries["DeleteUserById"])
+	if queries.DeleteUserByID != UserTestQueries["DeleteUserById"] {
+		t.Errorf("got %s, want %s", queries.DeleteUserByID, UserTestQueries["DeleteUserById"])
 	}
 	if queries.FindRiders != RiderTestQueries["FindRiders"] {
 		t.Errorf("got %s, want %s", queries.FindRiders, RiderTestQueries["FindRiders"])
@@ -623,10 +661,10 @@ func TestLoadFromFS(t *testing.T) {
 		CreateCatTable      string `query:"CreateCatTable"`
 		CreatePsychoCat     string `query:"CreatePsychoCat"`
 		CreateNormalCat     string `query:"CreateNormalCat"`
-		UpdateColorById     string `query:"UpdateColorById"`
-		FindUserById        string `query:"FindUserById"`
-		UpdateFirstNameById string `query:"UpdateFirstNameById"`
-		DeleteUserById      string `query:"DeleteUserById"`
+		UpdateColorByID     string `query:"UpdateColorById"`
+		FindUserByID        string `query:"FindUserById"`
+		UpdateFirstNameByID string `query:"UpdateFirstNameById"`
+		DeleteUserByID      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
 	}
 	// Test that the function fails when the directory does not exist
@@ -639,23 +677,23 @@ func TestLoadFromFS(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		// Test that the function fails when it can not read some .sql file
 		unreadableFilename := "testdata/test-load-from-fs/unreadable-file.sql"
-		unreadableFile, err := os.Create(unreadableFilename)
-		if err != nil {
-			t.Fatalf("unable to create %s: %s", unreadableFilename, err)
+		unreadableFile, err2 := os.Create(unreadableFilename)
+		if err2 != nil {
+			t.Fatalf("unable to create %s: %s", unreadableFilename, err2)
 		}
 		defer unreadableFile.Close()
-		err = os.Chmod(unreadableFilename, 0222)
-		if err != nil {
-			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err)
+		err2 = os.Chmod(unreadableFilename, 0222)
+		if err2 != nil {
+			t.Fatalf("unable to set the permissions of %s to 0222: %s", unreadableFilename, err2)
 		}
 		fsys = os.DirFS("testdata/test-load-from-fs")
-		_, err = LoadFromFS[RandomQuery](fsys)
-		if err == nil {
+		_, err2 = LoadFromFS[RandomQuery](fsys)
+		if err2 == nil {
 			t.Fatal("error is nil")
 		}
-		err = os.Remove(unreadableFilename)
-		if err != nil {
-			t.Fatalf("unable to remove %s: %s", unreadableFilename, err)
+		err2 = os.Remove(unreadableFilename)
+		if err2 != nil {
+			t.Fatalf("unable to remove %s: %s", unreadableFilename, err2)
 		}
 	}
 	// Test that the function succeeds when using the happy path
@@ -673,17 +711,17 @@ func TestLoadFromFS(t *testing.T) {
 	if queries.CreateNormalCat != CatTestQueries["CreateNormalCat"] {
 		t.Errorf("got %s, want %s", queries.CreateNormalCat, CatTestQueries["CreateNormalCat"])
 	}
-	if queries.UpdateColorById != CatTestQueries["UpdateColorById"] {
-		t.Errorf("got %s, want %s", queries.UpdateColorById, CatTestQueries["UpdateColorById"])
+	if queries.UpdateColorByID != CatTestQueries["UpdateColorById"] {
+		t.Errorf("got %s, want %s", queries.UpdateColorByID, CatTestQueries["UpdateColorById"])
 	}
-	if queries.FindUserById != UserTestQueries["FindUserById"] {
-		t.Errorf("got %s, want %s", queries.FindUserById, UserTestQueries["FindUserById"])
+	if queries.FindUserByID != UserTestQueries["FindUserById"] {
+		t.Errorf("got %s, want %s", queries.FindUserByID, UserTestQueries["FindUserById"])
 	}
-	if queries.UpdateFirstNameById != UserTestQueries["UpdateFirstNameById"] {
-		t.Errorf("got %s, want %s", queries.UpdateFirstNameById, UserTestQueries["UpdateFirstNameById"])
+	if queries.UpdateFirstNameByID != UserTestQueries["UpdateFirstNameById"] {
+		t.Errorf("got %s, want %s", queries.UpdateFirstNameByID, UserTestQueries["UpdateFirstNameById"])
 	}
-	if queries.DeleteUserById != UserTestQueries["DeleteUserById"] {
-		t.Errorf("got %s, want %s", queries.DeleteUserById, UserTestQueries["DeleteUserById"])
+	if queries.DeleteUserByID != UserTestQueries["DeleteUserById"] {
+		t.Errorf("got %s, want %s", queries.DeleteUserByID, UserTestQueries["DeleteUserById"])
 	}
 	if queries.FindRiders != RiderTestQueries["FindRiders"] {
 		t.Errorf("got %s, want %s", queries.FindRiders, RiderTestQueries["FindRiders"])

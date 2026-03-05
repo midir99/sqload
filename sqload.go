@@ -85,17 +85,10 @@ var ErrCannotLoadQueries = errors.New("cannot load queries")
 
 var queryNamePattern = regexp.MustCompile(`[ \t\n\r\f\v]*-- query:`)
 var validQueryNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
-var queryCommentPattern = regexp.MustCompile(`[ \t\n\r\f\v]*--[ \t\n\r\f\v]*(.*)$`)
 var newLinePattern = regexp.MustCompile("\r?\n")
 
 func extractSQL(lines []string) string {
-	sqlLines := []string{}
-	for _, line := range lines {
-		if !queryCommentPattern.MatchString(line) {
-			sqlLines = append(sqlLines, line)
-		}
-	}
-	return strings.Join(sqlLines, "\n")
+	return strings.Join(lines, "\n")
 }
 
 // ExtractQueryMap extracts the SQL code from the string and returns a map containing the queries.
@@ -138,6 +131,7 @@ func extractSQL(lines []string) string {
 func ExtractQueryMap(sql string) (map[string]string, error) {
 	queries := make(map[string]string)
 	rawQueries := queryNamePattern.Split(sql, -1)
+	// Skip the first element because is an empty string.
 	if len(rawQueries) <= 1 {
 		return queries, nil
 	}
