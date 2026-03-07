@@ -399,7 +399,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("%d (v=%v)", i, testCase.v), func(t *testing.T) {
-			err := loadQueriesIntoStruct(map[string]string{}, testCase.v)
+			err := loadQueriesIntoStruct(map[string]string{}, testCase.v, false)
 			if fmt.Sprint(err) != fmt.Sprint(testCase.err) {
 				t.Errorf("got %s, want %s", err, testCase.err)
 				return
@@ -411,7 +411,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		CreateCatTable int `query:"CreateCatTable"`
 	}
 	invalidCatQuery := InvalidCatQuery{}
-	err := loadQueriesIntoStruct(CatTestQueries, &invalidCatQuery)
+	err := loadQueriesIntoStruct(CatTestQueries, &invalidCatQuery, false)
 	wantedErr := fmt.Errorf("%w: field %s cannot be changed or is not a string", ErrCannotLoadQueries, "CreateCatTable")
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
@@ -421,7 +421,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		DeleteCatByID int `query:"DeleteCatById"`
 	}
 	missingCatQueries := MissingCatQueries{}
-	err = loadQueriesIntoStruct(CatTestQueries, &missingCatQueries)
+	err = loadQueriesIntoStruct(CatTestQueries, &missingCatQueries, false)
 	wantedErr = fmt.Errorf("%w: could not find query %s", ErrCannotLoadQueries, "DeleteCatById")
 	if fmt.Sprint(err) != fmt.Sprint(wantedErr) {
 		t.Errorf("got %s, want %s", err, wantedErr)
@@ -434,7 +434,7 @@ func TestLoadQueriesIntoStruct(t *testing.T) {
 		UpdateColorByID string `query:"UpdateColorById"`
 	}
 	catQuery := CatQuery{}
-	err = loadQueriesIntoStruct(CatTestQueries, &catQuery)
+	err = loadQueriesIntoStruct(CatTestQueries, &catQuery, false)
 	if err != nil {
 		t.Fatalf("err must be nil, got %s", err)
 	}
@@ -685,6 +685,7 @@ func TestLoadFromDir(t *testing.T) {
 		UpdateFirstNameByID string `query:"UpdateFirstNameById"`
 		DeleteUserByID      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
+		ListAllCars         string `query:"big-single-query.sql"`
 	}
 	// Test that the function fails when the directory does not exist
 	_, err := LoadFromDir[RandomQuery]("testdata/i-dont-exist")
@@ -769,6 +770,7 @@ func TestLoadFromFS(t *testing.T) {
 		UpdateFirstNameByID string `query:"UpdateFirstNameById"`
 		DeleteUserByID      string `query:"DeleteUserById"`
 		FindRiders          string `query:"FindRiders"`
+		ListAllCars         string `query:"big-single-query.sql"`
 	}
 	// Test that the function fails when the directory does not exist
 	fsys := os.DirFS("testdata/i-dont-exist")
